@@ -1,25 +1,6 @@
 
 
-## 6. Multiple Dashboard Views (Tabs/Variants)
-
-**Goal:** Replace the monolithic dashboard with a choice of several
-focused views (similar to getquin: Overview / Cash Flow / Categories / Account Comparison). **Files:** Split `src/views/Dashboard.tsx` into:
-- `src/views/dashboard/OverviewTab.tsx` (current content: KPIs + Sankey)
-- `src/views/dashboard/CashflowTab.tsx` (large 12-month history view, trend analysis)
-- `src/views/dashboard/CategoriesTab.tsx` (large category list, with
-drill-down from Task #2, year-over-year/month-over-month comparison per category)
-- `src/views/dashboard/AccountsCompareTab.tsx` (side-by-side accounts:
-balance history per account as overlaid line charts)
-
-**Implementation:** Within `Dashboard.tsx`, use a `Seg` control (already available
-in `components/ui.tsx`) with the four tabs and an `activeTab` state; pass `scope`
-as a prop to each tab component. Shared data loading (`useLiveQuery`
-for `transactions`/`categories`/`accounts`) remains in `Dashboard.tsx` and is
-passed down via props to avoid each tab component opening its own live queries.
-
-**Tests:** No new pure logic tests required, provided no new
-calculation logic is introduced (only layout restructuring + reuse of existing
-`lib/analytics.ts` functions).
+Hier die liste offener to-dos, wo du ggf. etwas hinzufügen könntest.
 
 ---
 ## 7. Interactive Pie Charts with Drill-down (getquin style)

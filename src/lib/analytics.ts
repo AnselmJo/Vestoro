@@ -123,6 +123,15 @@ export function monthlyBars(txs: Transaction[], months: string[]): MonthBar[] {
   });
 }
 
+/**
+ * Prepare donut chart data from category bars: returns {name, value}
+ * value is in euros (number, with two-decimal precision) for display in charts.
+ */
+export function donutDataFromCategoryBars(txs: Transaction[], categories: Category[]) {
+  const bars = categoryBars(txs, categories);
+  return bars.map((b) => ({ name: b.name, value: Math.round(b.valueCents) / 100 }));
+}
+
 export interface TransferFlow {
   fromAccountId: string;
   toAccountId: string;

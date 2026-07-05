@@ -54,10 +54,10 @@ export function Chart({ option, height = 320, onNodeClick }: { option: any; heig
       // Register commonly used charts/components
       try {
         const { use: echartsUse } = await import('echarts/core');
-        const { SankeyChart, BarChart, LineChart } = await import('echarts/charts');
+        const { SankeyChart, BarChart, LineChart, PieChart } = await import('echarts/charts');
         const { GridComponent, TooltipComponent, LegendComponent } = await import('echarts/components');
         const { CanvasRenderer } = await import('echarts/renderers');
-        echartsUse([SankeyChart, BarChart, LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
+        echartsUse([SankeyChart, BarChart, LineChart, PieChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
       } catch (e) {
         // ignore registration errors
       }
