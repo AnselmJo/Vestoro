@@ -1,24 +1,23 @@
 @import 'tailwindcss';
 
 :root {
-  --bg: #16181d;
-  --surface: #1e2128;
-  --surface-2: #262a33;
-  --border: #32363f;
-  --text: #e8eaed;
-  --text-dim: #9aa0ab;
-  --accent: #6ea8b5;
-  --income: #7fb069;
-  --expense: #c96f5d;
+  /* Brand: derived from the Vestoro logo (yellow-green → deep green) */
+  --bg: #0f1114;
+  --surface: #16191e;
+  --surface-2: #1e2229;
+  --surface-3: #262b34;
+  --border: #2a2f38;
+  --text: #e9ebee;
+  --text-dim: #969ca8;
+  --accent: #4db06b;
+  --accent-strong: #8dc63f;
+  --income: #6fbf73;
+  --expense: #d0705c;
   --transfer: #8a8f99;
-  --radius: 10px;
+  --radius: 12px;
 }
 
-html,
-body,
-#root {
-  height: 100%;
-}
+html, body, #root { height: 100%; }
 
 body {
   background: var(--bg);
@@ -40,32 +39,56 @@ body {
 }
 
 .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: 8px;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 9px;
   border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text);
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 150ms ease-out;
+  background: var(--surface-2); color: var(--text);
+  font-weight: 500; cursor: pointer;
+  transition: background 150ms ease-out, border-color 150ms ease-out;
 }
-.btn:hover { background: #2d323d; }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: #10151a; }
-.btn-primary:hover { background: #7fb6c2; }
+.btn:hover { background: var(--surface-3); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #0c1410; }
+.btn-primary:hover { background: #5cc07b; }
 .btn-danger { color: var(--expense); }
 
 .input, select.input {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 9px;
   padding: 7px 10px;
   color: var(--text);
   width: 100%;
 }
 .input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+/* Segmented period control (Monat | Jahr) */
+.seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: 2px; }
+.seg button {
+  padding: 5px 12px; border-radius: 7px; color: var(--text-dim);
+  font-weight: 500; cursor: pointer; transition: background 150ms ease-out;
+}
+.seg button.active { background: var(--surface-3); color: var(--text); }
+
+/* Sidebar navigation */
+.navgroup { padding: 14px 16px 4px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); }
+.navlink {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; text-align: left; cursor: pointer;
+  color: var(--text-dim); border-left: 2px solid transparent;
+  transition: background 150ms ease-out, color 150ms ease-out;
+  font-weight: 500;
+}
+.navlink:hover { color: var(--text); background: var(--surface-2); }
+.navlink.active { color: var(--text); background: var(--surface-2); border-left-color: var(--accent); }
+.badge-soon {
+  margin-left: auto; font-size: 10px; padding: 1px 7px; border-radius: 99px;
+  background: var(--surface-3); color: var(--text-dim); border: 1px solid var(--border);
+}
+
+/* Category share bar */
+.sharebar { height: 5px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
+.sharebar > div { height: 100%; border-radius: 99px; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }

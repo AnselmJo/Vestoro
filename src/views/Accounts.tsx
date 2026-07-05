@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
 import type { AccountType } from '../db/schema';
 import { de } from '../i18n/de';
-import { formatCents } from '../lib/money';
-import { createAccount } from '../db/repo';
+import { formatCents, formatIsoDate } from '../lib/money';
+import { currentIsoDate } from '../lib/money';
+import { createAccount, updateAccountBalance } from '../db/repo';
 import { Modal } from '../components/ui';
 import { ImportDialog } from './ImportDialog';
+import type { Scope } from '../app/App';
 
 const ACCOUNT_TYPES: AccountType[] = ['checking', 'savings', 'fixed_deposit', 'depot', 'cash'];
 
-export function Accounts() {
+export function Accounts({ scope }: { scope: Scope }) {
   const accounts = useLiveQuery(() => db.accounts.toArray(), []) ?? [];
   const txs = useLiveQuery(() => db.transactions.toArray(), []) ?? [];
   const [createOpen, setCreateOpen] = useState(false);
@@ -18,6 +20,13 @@ export function Accounts() {
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountType>('checking');
   const [iban, setIban] = useState('');
+  const [balanceFor, setBalanceFor] = useState<string | null>(null);
+  const [balanceAmount, setBalanceAmount] = useState('');
+  const [balanceDate, setBalanceDate] = useState(currentIsoDate());
+
+  const scoped = useMemo(() => accounts
+    .filter((a) => (a.isDemo ?? false) === scope.demoMode)
+    .filter((a) => scope.personIds.length === 0 || scope.personIds.includes(a.personId)), [accounts, scope]);
 
   const balances = new Map<string, { cents: number; count: number }>();
   for (const t of txs) {
@@ -29,26 +38,29 @@ export function Accounts() {
 
   async function submit() {
     if (!name.trim()) return;
-    await createAccount(name.trim(), type, iban.trim() ? iban.replace(/\s/g, '').toUpperCase() : undefined);
+    await createAccount(name.trim(), type, iban.trim() ? iban.replace(/\s/g, '').toUpperCase() : undefined, {
+      isDemo: scope.demoMode,
+      personId: scope.personIds.length === 1 ? scope.personIds[0] : undefined,
+    });
     setName(''); setIban(''); setCreateOpen(false);
   }
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">{de.accounts.title}</h2>
+        <div />
         <div className="flex gap-2">
           <button className="btn" onClick={() => setCreateOpen(true)}>{de.accounts.add}</button>
           <button className="btn btn-primary" onClick={() => setImportOpen(true)}>{de.dashboard.importCsv}</button>
         </div>
       </div>
 
-      {accounts.length === 0 && (
+      {scoped.length === 0 && (
         <div className="card p-8 text-center" style={{ color: 'var(--text-dim)' }}>{de.accounts.none}</div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {accounts.map((a) => {
+        {scoped.map((a) => {
           const b = balances.get(a.id) ?? { cents: 0, count: 0 };
           return (
             <div key={a.id} className="card p-4">
@@ -59,12 +71,26 @@ export function Accounts() {
                 </span>
               </div>
               {a.iban && <div className="mono text-xs mb-3" style={{ color: 'var(--text-dim)' }}>{a.iban}</div>}
+              <div className="text-xs" style={{ color: 'var(--text-dim)' }}>{de.accounts.balanceCalc}</div>
               <div className="mono text-xl" style={{ color: b.cents >= 0 ? 'var(--income)' : 'var(--expense)' }}>
                 {formatCents(b.cents)}
               </div>
-              <div className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>
+              {a.balanceCents !== undefined && a.balanceDate && (
+                <div className="mt-2 text-xs" style={{ color: 'var(--text-dim)' }}>
+                  {de.accounts.balanceExport(formatIsoDate(a.balanceDate))}:{' '}
+                  <span className="mono" style={{ color: 'var(--text)' }}>{formatCents(a.balanceCents)}</span>
+                </div>
+              )}
+              <div className="text-xs mt-2 mb-3" style={{ color: 'var(--text-dim)' }}>
                 {b.count} {de.accounts.txCount}
               </div>
+              <button className="btn text-xs" onClick={() => {
+                setBalanceFor(a.id);
+                setBalanceAmount(a.balanceCents !== undefined ? (a.balanceCents / 100).toFixed(2) : '');
+                setBalanceDate(a.balanceDate ?? currentIsoDate());
+              }}>
+                {de.accounts.setBalance}
+              </button>
             </div>
           );
         })}
@@ -85,7 +111,33 @@ export function Accounts() {
           </div>
         </Modal>
       )}
-      {importOpen && <ImportDialog onClose={() => setImportOpen(false)} />}
+      {importOpen && <ImportDialog scope={scope} onClose={() => setImportOpen(false)} />}
+      {balanceFor && (
+        <Modal title={de.accounts.setBalance} onClose={() => setBalanceFor(null)}>
+          <div className="flex flex-col gap-3">
+            <p className="text-sm" style={{ color: 'var(--text-dim)' }}>{de.accounts.setBalanceHint}</p>
+            <label className="text-xs" style={{ color: 'var(--text-dim)' }}>
+              {de.accounts.balanceAmount}
+              <input className="input mt-1 mono" type="number" step="0.01" value={balanceAmount}
+                onChange={(e) => setBalanceAmount(e.target.value)} />
+            </label>
+            <label className="text-xs" style={{ color: 'var(--text-dim)' }}>
+              {de.accounts.balanceAsOf}
+              <input className="input mt-1" type="date" value={balanceDate}
+                onChange={(e) => setBalanceDate(e.target.value)} />
+            </label>
+            <div className="flex gap-2">
+              <button className="btn btn-primary" onClick={async () => {
+                const cents = Math.round(Number(balanceAmount.replace(',', '.')) * 100);
+                if (!Number.isFinite(cents)) return;
+                await updateAccountBalance(balanceFor, cents, balanceDate);
+                setBalanceFor(null);
+              }}>{de.common.save}</button>
+              <button className="btn" onClick={() => setBalanceFor(null)}>{de.common.cancel}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

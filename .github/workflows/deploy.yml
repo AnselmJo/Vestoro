@@ -18,8 +18,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -28,6 +28,11 @@ jobs:
       - run: npm run build
         env:
           GITHUB_PAGES: 'true'
+      # actions/upload-pages-artifact and actions/deploy-pages are still on
+      # their latest published majors (v3 / v4) as of writing. The Node-20
+      # deprecation warning for them is informational only — GitHub already
+      # forces Node 24 execution regardless — and will disappear once GitHub
+      # ships new majors of these two actions.
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

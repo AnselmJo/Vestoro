@@ -3,14 +3,16 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
 import type { CategoryKind } from '../db/schema';
 import { de } from '../i18n/de';
-import { addCategory, deleteCategory, deleteAllData, reapplyRules, clearDemoData } from '../db/repo';
+import { addCategory, createPerson, deleteCategory, deleteAllData, reapplyRules, clearDemoData } from '../db/repo';
 import { exportBackup, importBackup, downloadJson } from '../lib/backup';
 import { loadDemoData } from '../lib/demo';
 
 export function Settings() {
+  const persons = useLiveQuery(() => db.persons.toArray(), []) ?? [];
   const categories = useLiveQuery(() => db.categories.toArray(), []) ?? [];
   const rules = useLiveQuery(() => db.rules.orderBy('priority').toArray(), []) ?? [];
   const [catName, setCatName] = useState('');
+  const [personName, setPersonName] = useState('');
   const [catKind, setCatKind] = useState<CategoryKind>('expense');
   const [confirmText, setConfirmText] = useState('');
   const [toast, setToast] = useState('');
@@ -35,7 +37,7 @@ export function Settings() {
   async function onLoadDemo() {
     try {
       await loadDemoData();
-      say('Demo-Daten geladen.');
+      say(de.settings.demoLoaded);
     } catch (err) {
       say(`Demo-Daten konnten nicht geladen werden: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -45,6 +47,23 @@ export function Settings() {
     <div className="flex flex-col gap-5 max-w-3xl">
       <h2 className="text-lg font-semibold">{de.settings.title}</h2>
       {toast && <div className="card p-3 text-sm" style={{ borderColor: 'var(--accent)' }}>{toast}</div>}
+
+      <section className="card p-4">
+        <h3 className="font-medium mb-3">{de.settings.persons}</h3>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {persons.map((p) => (
+            <span key={p.id} className="text-xs px-2.5 py-1 rounded-full"
+              style={{ background: 'var(--surface-2)' }}>{p.name}</span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input className="input max-w-56" placeholder={de.settings.catName} value={personName}
+            onChange={(e) => setPersonName(e.target.value)} />
+          <button className="btn" onClick={async () => { if (personName.trim()) { await createPerson(personName.trim()); setPersonName(''); } }}>
+            {de.settings.addPerson}
+          </button>
+        </div>
+      </section>
 
       <section className="card p-4">
         <h3 className="font-medium mb-3">{de.settings.categories}</h3>
@@ -106,10 +125,11 @@ export function Settings() {
       </section>
 
       <section className="card p-4">
-        <h3 className="font-medium mb-3">{de.settings.demo}</h3>
+        <h3 className="font-medium mb-1">{de.settings.demo}</h3>
+        <p className="text-sm mb-3" style={{ color: 'var(--text-dim)' }}>{de.settings.demoHint}</p>
         <div className="flex gap-2">
           <button className="btn" onClick={onLoadDemo}>{de.settings.demoLoad}</button>
-          <button className="btn" onClick={async () => { await clearDemoData(); say('Demo-Daten entfernt.'); }}>{de.settings.demoClear}</button>
+          <button className="btn" onClick={async () => { await clearDemoData(); say(de.settings.demoCleared); }}>{de.settings.demoClear}</button>
         </div>
       </section>
 

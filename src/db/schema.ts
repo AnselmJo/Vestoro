@@ -10,9 +10,12 @@ export interface Account {
   personId: string;
   name: string;
   type: AccountType;
-  iban?: string;      // normalized (uppercase, no spaces)
-  currency: string;   // 'EUR'
+  iban?: string;        // normalized (uppercase, no spaces)
+  currency: string;     // 'EUR'
   sharedRatio?: number;
+  isDemo?: boolean;     // demo environment flag — demo and real data never mix
+  balanceCents?: number;   // last known balance from a bank export (e.g. DKB)
+  balanceDate?: string;    // ISO date of that balance
 }
 
 export interface Category {
@@ -43,9 +46,11 @@ export interface Rule {
   priority: number;
   field: 'counterparty' | 'purpose' | 'counterpartyIban';
   op: 'contains' | 'equals' | 'startsWith';
-  value: string;
+  value: string;               // matched case-insensitive
   categoryId: string;
 }
+
+export interface Setting { key: string; value: unknown; }
 
 export class VestoroDb extends Dexie {
   persons!: Table<Person, string>;
@@ -53,6 +58,7 @@ export class VestoroDb extends Dexie {
   categories!: Table<Category, string>;
   transactions!: Table<Transaction, string>;
   rules!: Table<Rule, string>;
+  settings!: Table<Setting, string>;
 
   constructor() {
     super('vestoro');
@@ -63,6 +69,21 @@ export class VestoroDb extends Dexie {
       transactions: 'id, accountId, bookingDate, importHash, categoryId, transferGroupId',
       rules: 'id, priority',
     });
+    this.version(2)
+      .stores({
+        persons: 'id',
+        accounts: 'id, personId, iban',
+        categories: 'id, kind',
+        transactions: 'id, accountId, bookingDate, importHash, categoryId, transferGroupId',
+        rules: 'id, priority',
+        settings: 'key',
+      })
+      .upgrade(async (tx) => {
+        // Existing installs: mark previously created demo accounts.
+        await tx.table('accounts').toCollection().modify((a: Account) => {
+          if (a.name?.includes('(Demo)')) a.isDemo = true;
+        });
+      });
   }
 }
 

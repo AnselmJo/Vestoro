@@ -7,13 +7,18 @@ import { formatCents, formatIsoDate } from '../lib/money';
 import { detectAndParse, parseGeneric, readHeaders, normalizeIban } from '../lib/csv/profiles';
 import type { GenericMapping, ParseResult } from '../lib/csv/profiles';
 import { detectDelimiter } from '../lib/csv/parse';
-import { createAccount, importRows } from '../db/repo';
+import { createAccount, importRows, updateAccountBalance } from '../db/repo';
 import { Modal } from '../components/ui';
+import type { Scope } from '../app/App';
 
 const ACCOUNT_TYPES: AccountType[] = ['checking', 'savings', 'fixed_deposit', 'depot', 'cash'];
 
-export function ImportDialog({ onClose }: { onClose: () => void }) {
-  const accounts = useLiveQuery(() => db.accounts.toArray(), []) ?? [];
+export function ImportDialog({ scope, onClose }: { scope: Scope; onClose: () => void }) {
+  const allAccounts = useLiveQuery(() => db.accounts.toArray(), []) ?? [];
+  const accounts = allAccounts.filter(
+    (a) => (a.isDemo ?? false) === scope.demoMode &&
+      (scope.personIds.length === 0 || scope.personIds.includes(a.personId)),
+  );
   const [fileText, setFileText] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');
   const [parsed, setParsed] = useState<ParseResult | null>(null);
@@ -74,11 +79,21 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
       let targetId = accountId;
       if (targetId === '__new__' || !targetId) {
         const name = newAccountName.trim() || fileName.replace(/\.csv$/i, '') || 'Neues Konto';
-        const account = await createAccount(name, newAccountType, normalizeIban(parsed.sourceIban));
+        const account = await createAccount(name, newAccountType, normalizeIban(parsed.sourceIban), {
+          isDemo: scope.demoMode,
+          personId: scope.personIds.length === 1 ? scope.personIds[0] : undefined,
+        });
         targetId = account.id;
       }
       const summary = await importRows(targetId, parsed.rows);
-      setResult(de.import.result(summary.imported, summary.duplicates, summary.transfers));
+      let balanceNote = '';
+      if (parsed.sourceBalanceCents !== undefined && parsed.sourceBalanceDate) {
+        // Persist the balance stated in the export (DKB) on the target account.
+        await updateAccountBalance(targetId, parsed.sourceBalanceCents, parsed.sourceBalanceDate);
+        balanceNote = ' ' + de.import.balanceFound(
+          formatCents(parsed.sourceBalanceCents), formatIsoDate(parsed.sourceBalanceDate));
+      }
+      setResult(de.import.result(summary.imported, summary.duplicates, summary.transfers) + balanceNote);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

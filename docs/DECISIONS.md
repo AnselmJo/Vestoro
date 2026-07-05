@@ -30,3 +30,35 @@
   run natively on Node 24, removing the deprecation warning). upload-pages-
   artifact/deploy-pages stay on their current majors (v3/v4) until GitHub
   ships newer ones; the residual warning there is informational only.
+- 2026-07-05 — **UI v2.** Grouped sidebar with coming-soon modules, header with
+  environment toggle (Demo ↔ Meine Daten via isDemo flag + settings table,
+  schema v2), person/account switchers top right, period control moved from the
+  global header into the pages that need it (Dashboard month/year, Transactions
+  month/all). Brand color switched to the logo green (#4db06b accent).
+- 2026-07-05 — **Auto-classification starter rules** seeded once (common German
+  merchants → categories); bulk categorization modal groups uncategorized
+  transactions by counterparty and optionally creates a rule per assignment.
+- 2026-07-05 — **DKB export balance** (Kontostand vom …) parsed and stored on
+  the target account (balanceCents/balanceDate), shown on the account card.
+- 2026-07-05 — **First calculators** (savings plan with inflation, FIRE
+  projection) as pure tested functions in lib/calculators.ts.
+- 2026-07-05 — **First-run Setup-Wizard** ersetzt hardcodierte Person "Ich"
+  (Namenseingabe + Wahl Demo-Tour vs. direkt eigene Daten). Demo-Umschalter
+  aus dem Header entfernt (nur noch kleine Pille sichtbar, wenn man sich
+  aktuell im Demo-Modus befindet); offizieller Umschalter lebt in
+  Einstellungen. `navigator.storage.persist()` beim Bootstrap angefragt, um
+  Browser-Eviction von IndexedDB-Daten zu reduzieren (Safari-Risiko bleibt
+  dokumentiert in README, JSON-Export bleibt die eigentliche Absicherung).
+- 2026-07-05 — **Scope auf Mehrfachauswahl umgestellt** (`personIds`/
+  `accountIds: string[]` statt Einzelwert) mit eigener `MultiSelect`-
+  Komponente. Leeres Array bedeutet überall "kein Filter/alle" — Konvention
+  konsequent in Dashboard/Transactions/Accounts/ImportDialog angewendet.
+- 2026-07-05 — **Manuelle Kontostand-Hinterlegung** ergänzt (Modal auf
+  Konto-Karte), nutzt bereits vorhandene `balanceCents`/`balanceDate`-Felder
+  (bisher nur aus DKB-Import befüllt).
+- 2026-07-05 — **Große Feature-Anfragen (Sankey-Drilldown, Regel-Manager,
+  Donut-Charts mit Drill-down, Vertragserkennung, weitere Rechner,
+  Umbuchungs-Flow-Ansicht, Performance-Härtung) bewusst NICHT direkt
+  umgesetzt**, sondern als präzise spezifizierte Epics in
+  docs/TOP-20-TASKS.md dokumentiert — zu groß/riskant für unbeaufsichtigte
+  Umsetzung in einem Rutsch, besser als eigenständige Agent-Sessions.

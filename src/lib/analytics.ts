@@ -9,9 +9,13 @@ export interface PeriodStats {
 
 const isTransfer = (t: Transaction) => !!t.transferGroupId;
 
-export function inMonth(t: Transaction, monthKey: string): boolean {
-  return t.bookingDate.startsWith(monthKey);
+/** Period key is either a month ("2026-07") or a year ("2026"). */
+export function inPeriod(t: Transaction, periodKey: string): boolean {
+  return t.bookingDate.startsWith(periodKey);
 }
+
+export const inMonth = inPeriod; // backwards-compatible alias
+
 
 export function periodStats(txs: Transaction[]): PeriodStats {
   let income = 0;
@@ -106,6 +110,40 @@ export function monthlyBars(txs: Transaction[], months: string[]): MonthBar[] {
     const stats = periodStats(txs.filter((t) => inMonth(t, m)));
     return { month: m, incomeCents: stats.incomeCents, expenseCents: stats.expenseCents };
   });
+}
+
+export interface TransferFlow {
+  fromAccountId: string;
+  toAccountId: string;
+  cents: number; // positive, total moved in the period
+  count: number;
+}
+
+/**
+ * Aggregated money movement between own accounts (detected transfer pairs),
+ * grouped by direction. Period filtering uses the outflow booking date.
+ */
+export function transferFlows(txs: Transaction[], periodKey?: string): TransferFlow[] {
+  const byGroup = new Map<string, Transaction[]>();
+  for (const t of txs) {
+    if (!t.transferGroupId) continue;
+    if (!byGroup.has(t.transferGroupId)) byGroup.set(t.transferGroupId, []);
+    byGroup.get(t.transferGroupId)!.push(t);
+  }
+  const agg = new Map<string, TransferFlow>();
+  for (const pair of byGroup.values()) {
+    if (pair.length !== 2) continue;
+    const outflow = pair.find((t) => t.amountCents < 0);
+    const inflow = pair.find((t) => t.amountCents > 0);
+    if (!outflow || !inflow) continue;
+    if (periodKey && !outflow.bookingDate.startsWith(periodKey)) continue;
+    const key = `${outflow.accountId}→${inflow.accountId}`;
+    const prev = agg.get(key) ?? { fromAccountId: outflow.accountId, toAccountId: inflow.accountId, cents: 0, count: 0 };
+    prev.cents += -outflow.amountCents;
+    prev.count += 1;
+    agg.set(key, prev);
+  }
+  return [...agg.values()].sort((a, b) => b.cents - a.cents);
 }
 
 function round2(n: number): number {

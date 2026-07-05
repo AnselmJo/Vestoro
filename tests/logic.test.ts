@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { importHash } from '../src/lib/dedupe';
 import { detectTransfers } from '../src/lib/transfers';
 import { applyRules } from '../src/lib/rules';
-import { periodStats, sankeyData, categoryBars } from '../src/lib/analytics';
+import { periodStats, sankeyData, categoryBars, transferFlows } from '../src/lib/analytics';
 import type { Account, Rule, Transaction } from '../src/db/schema';
 
 const tx = (partial: Partial<Transaction>): Transaction => ({
@@ -116,5 +116,29 @@ describe('analytics', () => {
     const bars = categoryBars(txs, []);
     expect(bars[0].valueCents).toBeGreaterThanOrEqual(bars[bars.length - 1].valueCents);
     expect(bars.reduce((a, b) => a + b.valueCents, 0)).toBe(450000);
+  });
+});
+
+describe('transferFlows', () => {
+  it('aggregates direction and sums per account pair', () => {
+    const g1 = 'g1', g2 = 'g2';
+    const txs: Transaction[] = [
+      tx({ id: 'a', accountId: 'giro', amountCents: -80000, transferGroupId: g1, bookingDate: '2026-07-03' }),
+      tx({ id: 'b', accountId: 'tagesgeld', amountCents: 80000, transferGroupId: g1, bookingDate: '2026-07-03' }),
+      tx({ id: 'c', accountId: 'giro', amountCents: -60000, transferGroupId: g2, bookingDate: '2026-07-04' }),
+      tx({ id: 'd', accountId: 'tagesgeld', amountCents: 60000, transferGroupId: g2, bookingDate: '2026-07-04' }),
+    ];
+    const flows = transferFlows(txs, '2026-07');
+    expect(flows).toHaveLength(1);
+    expect(flows[0]).toMatchObject({ fromAccountId: 'giro', toAccountId: 'tagesgeld', cents: 140000, count: 2 });
+  });
+  it('filters by period using the outflow date', () => {
+    const txs: Transaction[] = [
+      tx({ id: 'a', accountId: 'giro', amountCents: -100, transferGroupId: 'g', bookingDate: '2026-06-30' }),
+      tx({ id: 'b', accountId: 'tg', amountCents: 100, transferGroupId: 'g', bookingDate: '2026-07-01' }),
+    ];
+    expect(transferFlows(txs, '2026-07')).toHaveLength(0);
+    expect(transferFlows(txs, '2026-06')).toHaveLength(1);
+    expect(transferFlows(txs, '2026')).toHaveLength(1); // year keys work too
   });
 });

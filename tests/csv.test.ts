@@ -48,6 +48,8 @@ describe('DKB profile', () => {
     const result = detectAndParse(DKB_FIXTURE);
     expect(result?.profile).toBe('dkb');
     expect(result?.sourceIban).toBe('DE48120300001082275023');
+    expect(result?.sourceBalanceCents).toBe(157241);
+    expect(result?.sourceBalanceDate).toBe('2026-07-05');
     expect(result?.rows).toHaveLength(1);
     const row = result!.rows[0];
     expect(row.bookingDate).toBe('2026-07-02');

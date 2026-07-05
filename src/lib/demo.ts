@@ -28,7 +28,7 @@ export async function loadDemoData(): Promise<void> {
   // crashes the Sankey chart.
   const ensureDemoAccount = async (name: string, type: 'checking' | 'savings', iban: string) => {
     const existing = await db.accounts.where('iban').equals(iban).first();
-    return existing ?? createAccount(name, type, iban);
+    return existing ?? createAccount(name, type, iban, { isDemo: true });
   };
 
   const giroC24 = await ensureDemoAccount('C24 Girokonto (Demo)', 'checking', 'DE02120300000000202051');

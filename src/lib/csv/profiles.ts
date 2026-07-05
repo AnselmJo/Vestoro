@@ -16,6 +16,9 @@ export interface ParseResult {
   rows: ParsedRow[];
   /** IBAN of the source account if the file states it (DKB does). */
   sourceIban?: string;
+  /** Balance stated in the export header (DKB: "Kontostand vom DD.MM.YYYY"). */
+  sourceBalanceCents?: number;
+  sourceBalanceDate?: string; // ISO
   headers: string[];
 }
 
@@ -74,9 +77,21 @@ export function isDkb(rows: string[][]): number {
 function parseDkb(rows: string[][], headerIdx: number): ParseResult {
   const headers = rows[headerIdx].map((h) => h.trim());
   let sourceIban: string | undefined;
+  let sourceBalanceCents: number | undefined;
+  let sourceBalanceDate: string | undefined;
   const first = rows[0];
   if (first && first.length >= 2 && /^[A-Z]{2}\d/.test(first[1]?.trim() ?? '')) {
     sourceIban = normalizeIban(first[1]);
+  }
+  // Metadata line: "Kontostand vom 05.07.2026:";"1.572,41 €"
+  for (const r of rows.slice(0, headerIdx)) {
+    const label = r[0]?.trim() ?? '';
+    const m = label.match(/Kontostand vom (\d{2}\.\d{2}\.\d{4})/);
+    if (m && r[1]) {
+      const cents = parseGermanAmount(r[1]);
+      const iso = parseGermanDate(m[1]);
+      if (cents !== null && iso !== null) { sourceBalanceCents = cents; sourceBalanceDate = iso; }
+    }
   }
   const out: ParsedRow[] = [];
   for (const cells of rows.slice(headerIdx + 1)) {
@@ -98,7 +113,7 @@ function parseDkb(rows: string[][], headerIdx: number): ParseResult {
       raw: rec,
     });
   }
-  return { profile: 'dkb', rows: out, headers, sourceIban };
+  return { profile: 'dkb', rows: out, headers, sourceIban, sourceBalanceCents, sourceBalanceDate };
 }
 
 // ---------- generic ----------

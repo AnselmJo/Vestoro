@@ -80,6 +80,14 @@ später die Bequemlichkeit (gehosteter Sync, automatischer Bankabruf über lizen
 Partner, Premium-Analysen). Companion-App und Datenmodell werden so gebaut, dass ein
 bezahlter Sync-Dienst andockbar ist, ohne den lokalen Kern zu ändern.
 
+## Status (Stand 05.07.2026)
+
+Alpha ist funktional (Cashflow-Kern, CSV-Import C24/DKB, Kategorisierung,
+Bulk-Zuordnung, Umbuchungserkennung, erste Rechner, Demo-Umgebung, Setup-Wizard).
+Detaillierte nächste Schritte: **docs/TOP-20-TASKS.md** (agentenbereit, präzise
+spezifiziert). Vollständiges darüber hinausgehendes Backlog nach Phase/Thema:
+**docs/BACKLOG.md**.
+
 ## Risiken
 
 - **Scalable ohne Prime:** kein nativer CSV-Export → generischer Mapper + Community-Profile; Proxy erst in V3
