@@ -126,6 +126,8 @@ export const de = {
     balanceFound: (v: string, d: string) => `Kontostand aus Export übernommen: ${v} (${d})`,
     result: (n: number, d: number, t: number) =>
       `${n} importiert, ${d} Duplikate übersprungen, ${t} Umbuchungen erkannt.`,
+    resultDetailed: (n: number, auto: number, open: number, pct: number) =>
+      `${n} importiert, ${auto} automatisch kategorisiert (${pct}%), ${open} offen`,
     noRows: 'Keine verwertbaren Zeilen gefunden.',
   },
   calc: {

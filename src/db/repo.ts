@@ -118,7 +118,7 @@ export async function updateAccountBalance(id: string, balanceCents: number, bal
 }
 
 // ---------- import pipeline ----------
-export interface ImportSummary { imported: number; duplicates: number; transfers: number; }
+export interface ImportSummary { imported: number; duplicates: number; transfers: number; autoCategorized?: number; }
 
 export async function importRows(
   accountId: string,
@@ -130,6 +130,7 @@ export async function importRows(
     const rules = await db.rules.orderBy('priority').toArray();
     let imported = 0;
     let duplicates = 0;
+    let autoCategorized = 0;
 
     const toInsert: Transaction[] = [];
     for (const r of rows) {
@@ -149,7 +150,8 @@ export async function importRows(
         source,
         raw: r.raw,
       };
-      tx.categoryId = applyRules(tx, rules) ?? undefined;
+      const applied = applyRules(tx, rules);
+      if (applied) { tx.categoryId = applied; autoCategorized++; }
       toInsert.push(tx);
       imported++;
     }
@@ -164,7 +166,7 @@ export async function importRows(
       await db.transactions.update(b, { transferGroupId: groupId });
       transfers++;
     }
-    return { imported, duplicates, transfers };
+    return { imported, duplicates, transfers, autoCategorized };
   });
 }
 

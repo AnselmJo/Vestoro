@@ -9,6 +9,7 @@ import { addRuleAndApply, bulkCategorize, setCategory, bulkCategorizeByCounterpa
 import { Modal, useToast } from '../components/ui';
 // RulesManager is now a separate page; navigate via global event
 import TransactionRow from '../components/TransactionRow';
+import CategorizationCenter from './CategorizationCenter';
 import type { Scope } from '../app/App';
 
 const PAGE = 100;
@@ -38,6 +39,7 @@ export function Transactions({ scope, search, onSearch }: {
   const [confirmBulk, setConfirmBulk] = useState<{ counterparty: string; categoryId: string; matches: number; createRule: boolean } | null>(null);
   // rulesOpen modal removed; rules are managed on their own page
   const [undoOpen, setUndoOpen] = useState(false);
+  const [centerOpen, setCenterOpen] = useState(false);
   void undoOpen;
 
   const scopedAccountIds = useMemo(() => new Set(
@@ -90,6 +92,10 @@ export function Transactions({ scope, search, onSearch }: {
     [scopedTxs],
   );
 
+  const totalCents = useMemo(() => scopedTxs.filter((t) => !t.transferGroupId).reduce((s, t) => s + Math.abs(t.amountCents), 0), [scopedTxs]);
+  const categorizedCents = useMemo(() => scopedTxs.filter((t) => t.categoryId && !t.transferGroupId).reduce((s, t) => s + Math.abs(t.amountCents), 0), [scopedTxs]);
+  const categorizedPct = totalCents ? Math.round((categorizedCents / totalCents) * 100) : 0;
+
   const toast = useToast();
 
   async function onCategoryChange(tx: Transaction, categoryId: string) {
@@ -124,6 +130,18 @@ export function Transactions({ scope, search, onSearch }: {
           {de.tx.allPeriods}
         </label>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
+          {uncategorizedCount > 0 && (
+            <div className="p-3 rounded-md" style={{ background: 'linear-gradient(90deg,var(--surface-2),var(--surface))', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, color: 'var(--text-dim)' }}> {categorizedPct}% kategorisiert</div>
+              <div className="flex items-center gap-2">
+                <div style={{ flex: 1, background: 'var(--surface-2)', height: 8, borderRadius: 6 }}>
+                  <div style={{ width: `${categorizedPct}%`, background: 'var(--accent)', height: 8, borderRadius: 6 }} />
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', minWidth: 120, textAlign: 'right' }}> {formatCents(categorizedCents)} / {formatCents(totalCents)}</div>
+                <button className="btn btn-sm" onClick={() => setCenterOpen(true)}>Kategorisieren</button>
+              </div>
+            </div>
+          )}
           <div className="seg" style={{ alignItems: 'center' }}>
             <button className={directionFilter === 'all' ? 'active' : ''} onClick={() => setDirectionFilter('all')}>Alle</button>
             <button className={directionFilter === 'in' ? 'active' : ''} onClick={() => setDirectionFilter('in')}>Eingehend</button>
@@ -143,6 +161,7 @@ export function Transactions({ scope, search, onSearch }: {
           <button className="btn" onClick={() => setUndoOpen(true)}>{de.tx.recentChanges}</button>
         </div>
       </div>
+      {centerOpen && <CategorizationCenter onClose={() => setCenterOpen(false)} />}
 
       {rulePrompt && (
         <div className="card p-3 flex items-center gap-3 text-sm flex-wrap" style={{ borderColor: 'var(--accent)' }}>

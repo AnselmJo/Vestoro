@@ -14,6 +14,9 @@ import type { Scope, View } from '../app/App';
 
 type PeriodMode = 'month' | 'quarter' | 'year';
 
+/** Stable empty map — avoids a new Map() reference on every Dashboard render. */
+const EMPTY_MAP: ReadonlyMap<string, string> = new Map();
+
 export function Dashboard({ scope, onNavigate, setIncludeTransfers }: { scope: Scope; onNavigate: (v: View) => void; setIncludeTransfers?: (v: boolean) => void }) {
   // reference to avoid unused parameter errors
   void onNavigate;
@@ -60,9 +63,11 @@ export function Dashboard({ scope, onNavigate, setIncludeTransfers }: { scope: S
 
   const periodKey = mode === 'month' ? monthKey : monthKey.slice(0, 4);
   const yearOfKey = Number(monthKey.slice(0, 4));
-  const last12 = mode === 'month'
-    ? Array.from({ length: 12 }, (_, i) => shiftMonth(monthKey, i - 11))
-    : Array.from({ length: 12 }, (_, i) => `${yearOfKey}-${String(i + 1).padStart(2, '0')}`);
+  const last12 = useMemo(() => (
+    mode === 'month'
+      ? Array.from({ length: 12 }, (_, i) => shiftMonth(monthKey, i - 11))
+      : Array.from({ length: 12 }, (_, i) => `${yearOfKey}-${String(i + 1).padStart(2, '0')}`)
+  ), [mode, monthKey, yearOfKey]);
 
   const periodTxs = useMemo(
     () => txs.filter((t) => inPeriod(t, periodKey)),
@@ -93,7 +98,7 @@ export function Dashboard({ scope, onNavigate, setIncludeTransfers }: { scope: S
           periodTxs={periodTxs}
           categories={categories}
           accountName={accountName}
-          transferPartner={new Map()}
+          transferPartner={EMPTY_MAP as Map<string, string>}
           selectedCategory={selectedCategory}
           setSelectedCategory={setSelectedCategory}
           fullscreenSankey={fullscreenSankey}
