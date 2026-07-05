@@ -26,6 +26,7 @@ export function Dashboard({ scope, onNavigate, setIncludeTransfers }: { scope: S
   const [activeTab, setActiveTab] = useState<'overview'|'cashflow'|'categories'|'accounts'>('overview');
 
   const accounts = useLiveQuery(() => db.accounts.toArray(), []) ?? [];
+  const persons = useLiveQuery(() => db.persons.toArray(), []) ?? [];
   const allTxs = useLiveQuery(() => db.transactions.toArray(), []) ?? [];
   const categories = useLiveQuery(() => db.categories.toArray(), []) ?? [];
 
@@ -81,7 +82,7 @@ export function Dashboard({ scope, onNavigate, setIncludeTransfers }: { scope: S
       )}
 
       {activeTab === 'categories' && (
-        <CategoriesTab txs={periodTxs} categories={categories} />
+        <CategoriesTab txs={periodTxs} categories={categories} accounts={accounts} persons={persons} />
       )}
 
       {activeTab === 'accounts' && (

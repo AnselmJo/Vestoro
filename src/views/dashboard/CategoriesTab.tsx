@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { DonutChart } from '../../components/DonutChart';
 import { Modal } from '../../components/ui';
 import TransactionRow from '../../components/TransactionRow';
+import { setCategory } from '../../db/repo';
 
 export function CategoriesTab({ txs, categories, accounts, persons }:{ txs: Transaction[]; categories: Category[]; accounts?: any[]; persons?: any[] }) {
   const [showDonut, setShowDonut] = useState(true);
@@ -81,7 +82,21 @@ export function CategoriesTab({ txs, categories, accounts, persons }:{ txs: Tran
             </thead>
             <tbody>
               {filteredTxs.map((t) => (
-                <TransactionRow key={t.id} t={t} accountName={new Map((accounts ?? []).map((a:any)=>[a.id,a.name]))} categories={categories} transferPartner={new Map()} onCategoryChange={async () => {}} compact />
+                <TransactionRow
+                  key={t.id}
+                  t={t}
+                  accountName={new Map((accounts ?? []).map((a:any)=>[a.id,a.name]))}
+                  categories={categories}
+                  transferPartner={new Map()}
+                  onCategoryChange={async (_tx, categoryId) => {
+                    try {
+                      await setCategory(t.id, categoryId || undefined);
+                    } catch (e: any) {
+                      alert(e?.message ?? 'Fehler beim Setzen der Kategorie');
+                    }
+                  }}
+                  compact
+                />
               ))}
             </tbody>
           </table>

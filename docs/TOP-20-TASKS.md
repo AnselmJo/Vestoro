@@ -2,37 +2,6 @@
 
 Hier die liste offener to-dos, wo du ggf. etwas hinzufügen könntest.
 
----
-## 7. Interactive Pie Charts with Drill-down (getquin style)
-
-**Goal:** Donut charts featuring hover tooltips, click-to-drill-down functionality (opening a sub-level),
-and a grouping selector in the title (Income/Expenses/Accounts/People/Assets).
-
-**New file:** `src/components/DonutChart.tsx` (ECharts `pie` series with
-`radius: ['55%','80%']` for the donut look; center displays label + total + percentage
-matching the reference screenshot).
-
-**Requirements:**
-- Add ECharts `pie` to the `echarts.use([...])` registration in `components/ui.tsx`
-(import `PieChart` from `echarts/charts`)
-- Props: `data: { name: string; value: number }[]`, `centerLabel: string`,
-`groupOptions: { id: string; label: string }[]`, `activeGroup`,
-`onGroupChange`, `onSliceClick?: (name: string) => void`
-- Title bar above the donut: Segmented control for groups (Income /
-Expenses / Accounts / People — "Assets" only usable once a portfolio
-exists; otherwise grayed out with a "coming soon" tooltip)
-- Clicking a segment → Modal with a detailed list (similar to Task #2, but
-generic for any grouping: clicking an account donut segment shows
-transactions for that account within the selected period)
-- Center of the donut: `centerLabel` (e.g., selected category), large
-amount, and percentage — exactly as shown in the reference screenshot
-
-**Usage:** Replaces/complements the current bar list in
-`CategoriesTab.tsx` (Task #6) as an alternative view (toggle between list and donut). **Tests:** No mandatory tests (purely for visualization), but the data preparation logic
-(`data: {name,value}[]` derived from `categoryBars`/`transferFlows`/account balances)
-should be extracted into a pure function in `lib/analytics.ts` and tested there.
-
----
 
 ## 8. Bulk categorization starting from a single transaction (context menu)
 
