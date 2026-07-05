@@ -23,6 +23,7 @@ export interface Category {
   name: string;
   parentId?: string;
   kind: CategoryKind;
+  color?: string; // optional CSS variable or hex from fixed palette
 }
 
 export interface Transaction {
@@ -88,6 +89,7 @@ export class VestoroDb extends Dexie {
       });
 
     // v3: add optional rule fields (exceptions, enabled) and set sensible defaults
+    // also ensure categories have a default color
     this.version(3)
       .stores({
         persons: 'id',
@@ -103,6 +105,12 @@ export class VestoroDb extends Dexie {
         await rules.toCollection().modify((r: Partial<Rule>) => {
           if ((r as any).enabled === undefined) (r as any).enabled = true;
           if (!Array.isArray((r as any).exceptions)) (r as any).exceptions = [];
+        });
+        const categories = tx.table('categories');
+        const palette = ['#EF4444','#F97316','#F59E0B','#EAB308','#84CC16','#10B981','#06B6D4','#3B82F6','#6366F1','#8B5CF6','#EC4899','#374151'];
+        let i = 0;
+        await categories.toCollection().modify((c: Partial<Category>) => {
+          if (!c.color) { c.color = palette[i % palette.length]; i++; }
         });
       });
   }

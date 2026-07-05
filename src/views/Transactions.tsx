@@ -6,6 +6,7 @@ import { de } from '../i18n/de';
 import { currentMonthKey, formatCents, formatIsoDate, monthLabel, shiftMonth } from '../lib/money';
 import { addRuleAndApply, bulkCategorize, setCategory } from '../db/repo';
 import { Modal } from '../components/ui';
+import { RulesManager } from './RulesManager';
 import type { Scope } from '../app/App';
 
 const PAGE = 100;
@@ -22,6 +23,7 @@ export function Transactions({ scope, search, onSearch }: {
   const [limit, setLimit] = useState(PAGE);
   const [rulePrompt, setRulePrompt] = useState<{ tx: Transaction; categoryId: string } | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const scopedAccountIds = useMemo(() => new Set(
     accounts
@@ -99,6 +101,7 @@ export function Transactions({ scope, search, onSearch }: {
           <button className="btn btn-primary" onClick={() => setBulkOpen(true)}>
             {de.tx.bulk}{uncategorizedCount > 0 ? ` (${uncategorizedCount})` : ''}
           </button>
+          <button className="btn" onClick={() => setRulesOpen(true)}>Categories & Rules</button>
         </div>
       </div>
 
@@ -175,6 +178,9 @@ export function Transactions({ scope, search, onSearch }: {
           txs={scopedTxs.filter((t) => !t.categoryId && !t.transferGroupId)}
           onClose={() => setBulkOpen(false)}
         />
+      )}
+      {rulesOpen && (
+        <RulesManager onClose={() => setRulesOpen(false)} />
       )}
     </div>
   );

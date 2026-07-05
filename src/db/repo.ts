@@ -206,11 +206,38 @@ export async function addCategory(name: string, kind: Category['kind']): Promise
   await db.categories.add({ id: uid(), name, kind });
 }
 
+export async function updateCategory(id: string, patch: Partial<Category>): Promise<void> {
+  await db.categories.update(id, patch);
+}
+
 export async function deleteCategory(id: string): Promise<void> {
   await db.transaction('rw', db.categories, db.transactions, db.rules, async () => {
     await db.categories.delete(id);
     await db.transactions.where('categoryId').equals(id).modify({ categoryId: undefined });
     await db.rules.where('categoryId').equals(id).delete();
+  });
+}
+
+// ---------- rules helpers ----------
+export async function updateRule(id: string, patch: Partial<Rule>): Promise<void> {
+  await db.rules.update(id, patch);
+}
+
+export async function deleteRule(id: string): Promise<void> {
+  await db.rules.delete(id);
+}
+
+export async function moveRule(id: string, direction: 'up' | 'down'): Promise<void> {
+  const rules = await db.rules.orderBy('priority').toArray();
+  const idx = rules.findIndex((r) => r.id === id);
+  if (idx === -1) return;
+  const swapWith = direction === 'up' ? idx - 1 : idx + 1;
+  if (swapWith < 0 || swapWith >= rules.length) return;
+  const a = rules[idx];
+  const b = rules[swapWith];
+  await db.transaction('rw', db.rules, async () => {
+    await db.rules.update(a.id, { priority: b.priority });
+    await db.rules.update(b.id, { priority: a.priority });
   });
 }
 
