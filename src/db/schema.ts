@@ -48,6 +48,8 @@ export interface Rule {
   op: 'contains' | 'equals' | 'startsWith';
   value: string;               // matched case-insensitive
   categoryId: string;
+  exceptions?: string[];       // transaction IDs to exclude from this rule
+  enabled?: boolean;           // default true
 }
 
 export interface Setting { key: string; value: unknown; }
@@ -82,6 +84,25 @@ export class VestoroDb extends Dexie {
         // Existing installs: mark previously created demo accounts.
         await tx.table('accounts').toCollection().modify((a: Account) => {
           if (a.name?.includes('(Demo)')) a.isDemo = true;
+        });
+      });
+
+    // v3: add optional rule fields (exceptions, enabled) and set sensible defaults
+    this.version(3)
+      .stores({
+        persons: 'id',
+        accounts: 'id, personId, iban',
+        categories: 'id, kind',
+        transactions: 'id, accountId, bookingDate, importHash, categoryId, transferGroupId',
+        rules: 'id, priority',
+        settings: 'key',
+      })
+      .upgrade(async (tx) => {
+        const rules = tx.table('rules');
+        // Ensure existing rules have enabled = true and empty exceptions array
+        await rules.toCollection().modify((r: Partial<Rule>) => {
+          if ((r as any).enabled === undefined) (r as any).enabled = true;
+          if (!Array.isArray((r as any).exceptions)) (r as any).exceptions = [];
         });
       });
   }
