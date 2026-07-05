@@ -5,6 +5,7 @@ import { de } from '../i18n/de';
 import { createPerson, deleteAllData, reapplyRules, clearDemoData, renamePerson, deletePerson, renameAccount, reassignAccountOwner, deleteAccount } from '../db/repo';
 import { exportBackup, importBackup, downloadJson } from '../lib/backup';
 import { loadDemoData } from '../lib/demo';
+import { Modal } from '../components/ui';
 
 export function Settings() {
   const persons = useLiveQuery(() => db.persons.toArray(), []) ?? [];
@@ -41,6 +42,12 @@ export function Settings() {
     }
   }
 
+  const [reassignPersonId, setReassignPersonId] = useState<string | null>(null);
+  const [reassignTarget, setReassignTarget] = useState<string | null>(null);
+  const [renameAccountId, setRenameAccountId] = useState<string | null>(null);
+  const [renameAccountValue, setRenameAccountValue] = useState('');
+  const [deleteAccountId, setDeleteAccountId] = useState<string | null>(null);
+
   return (
     <div className="flex flex-col gap-5 max-w-3xl">
       <h2 className="text-lg font-semibold">{de.settings.title}</h2>
@@ -65,16 +72,12 @@ export function Settings() {
                 <button className="btn" onClick={async () => {
                   const linked = accounts.filter((a) => a.personId === p.id);
                   if (linked.length === 0) {
+                    // open simple confirm modal
                     if (confirm(`Lösche Person ${p.name}?`)) { await deletePerson(p.id); setToast('Gelöscht'); }
                     return;
                   }
-                  const target = window.prompt('ID der Person zum Zuweisen aller Konten (leer = abbrechen)');
-                  if (!target) return;
-                  if (!persons.find((x) => x.id === target)) { alert('Ungültige Person'); return; }
-                  if (confirm(`Konten von ${p.name} an ${persons.find((x) => x.id === target)!.name} übertragen und Person löschen?`)) {
-                    await deletePerson(p.id, target);
-                    setToast('Gelöscht und Konten zugewiesen');
-                  }
+                  // open reassign modal
+                  setReassignPersonId(p.id);
                 }}>{de.common.delete}</button>
               </div>
             </div>
@@ -100,20 +103,12 @@ export function Settings() {
               </div>
               <div className="flex items-center gap-2">
                 <button className="btn" onClick={async () => {
-                  const newName = window.prompt('Neuer Kontoname', a.name);
-                  if (newName) { await renameAccount(a.id, newName); setToast('Gespeichert'); }
+                  setRenameAccountId(a.id); setRenameAccountValue(a.name);
                 }}>{de.settings.renameAccount}</button>
                 <select className="input" defaultValue={a.personId} onChange={async (e) => { await reassignAccountOwner(a.id, e.target.value); setToast('Gespeichert'); }}>
                   {persons.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
-                <button className="btn" onClick={async () => {
-                  try {
-                    if (confirm(`Konto ${a.name} löschen? Diese Aktion ist nur möglich wenn keine Transaktionen vorhanden sind.`)) {
-                      await deleteAccount(a.id);
-                      setToast('Konto gelöscht');
-                    }
-                  } catch (e: any) { alert(e?.message ?? 'Fehler'); }
-                }}>{de.common.delete}</button>
+                <button className="btn" onClick={async () => { setDeleteAccountId(a.id); }}>{de.common.delete}</button>
               </div>
             </div>
           ))}
@@ -140,6 +135,47 @@ export function Settings() {
           </button>
         )}
       </section>
+
+      {reassignPersonId && (
+        <Modal title={de.settings.reassignAccounts} onClose={() => { setReassignPersonId(null); setReassignTarget(null); }}>
+          <p className="mb-2">Die Person hat mehrere Konten. Wähle eine Zielperson zur Übertragung der Konten, oder Abbrechen.</p>
+          <select className="input w-full mb-3" value={reassignTarget ?? ''} onChange={(e) => setReassignTarget(e.target.value || null)}>
+            <option value="">— Zielperson wählen —</option>
+            {persons.filter((p) => p.id !== reassignPersonId).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <div className="flex justify-end gap-2">
+            <button className="btn" onClick={() => { setReassignPersonId(null); setReassignTarget(null); }}>{de.common.cancel}</button>
+            <button className="btn btn-primary" onClick={async () => {
+              if (!reassignTarget) return alert('Bitte Zielperson wählen');
+              try {
+                await deletePerson(reassignPersonId as string, reassignTarget);
+                setToast('Gelöscht und Konten zugewiesen');
+              } catch (e: any) { alert(e?.message ?? 'Fehler'); }
+              setReassignPersonId(null); setReassignTarget(null);
+            }}>{de.common.delete}</button>
+          </div>
+        </Modal>
+      )}
+
+      {renameAccountId && (
+        <Modal title={de.settings.renameAccount} onClose={() => setRenameAccountId(null)}>
+          <input className="input w-full mb-3" value={renameAccountValue} onChange={(e) => setRenameAccountValue(e.target.value)} />
+          <div className="flex justify-end gap-2">
+            <button className="btn" onClick={() => setRenameAccountId(null)}>{de.common.cancel}</button>
+            <button className="btn btn-primary" onClick={async () => { if (!renameAccountValue) return; await renameAccount(renameAccountId as string, renameAccountValue); setToast('Gespeichert'); setRenameAccountId(null); }}>{de.common.save}</button>
+          </div>
+        </Modal>
+      )}
+
+      {deleteAccountId && (
+        <Modal title={de.settings.deleteAccountConfirm} onClose={() => setDeleteAccountId(null)}>
+          <p>Dieses Konto löschen? Diese Aktion ist nur möglich, wenn keine Transaktionen vorhanden sind.</p>
+          <div className="flex justify-end gap-2">
+            <button className="btn" onClick={() => setDeleteAccountId(null)}>{de.common.cancel}</button>
+            <button className="btn btn-danger" onClick={async () => { try { await deleteAccount(deleteAccountId as string); setToast('Konto gelöscht'); } catch (e: any) { alert(e?.message ?? 'Fehler'); } setDeleteAccountId(null); }}>{de.common.delete}</button>
+          </div>
+        </Modal>
+      )}
 
       <section className="card p-4">
         <h3 className="font-medium mb-1">{de.settings.backup}</h3>
