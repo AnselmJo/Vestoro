@@ -1,30 +1,5 @@
 
 
----
-
-## 5. Custom Dashboard View: Transfer Flow Diagram
-
-**Goal:** A separate page visualizing only the flow of funds between one's own
-accounts (excluding income/expense noise).
-
-**New File:** `src/views/TransferFlows.tsx`, new nav entry under
-"Overview" in `App.tsx` (`id: 'flows'`).
-
-**Must Include:**
-- Sankey diagram consisting solely of account nodes (no categories); edges
-derived from `transferFlows()` in `lib/analytics.ts` (already implemented).
-- Time-range controls matching the main dashboard (month/year, using local state).
-- Table below: list of individual transfer pairs (date, from,
-to, amount), sortable by date/amount.
-- If >1 account per person: additional filter for "only between accounts of
-[Person X]" vs. "all" (relevant once multiple people/household funds
-exist).
-
-**Tests:** Pure layout component; no mandatory unit tests required —
-`analytics.ts` is already tested.
-
----
-
 ## 6. Multiple Dashboard Views (Tabs/Variants)
 
 **Goal:** Replace the monolithic dashboard with a choice of several
