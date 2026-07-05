@@ -132,6 +132,29 @@ export function donutDataFromCategoryBars(txs: Transaction[], categories: Catego
   return bars.map((b) => ({ name: b.name, value: Math.round(b.valueCents) / 100 }));
 }
 
+export function donutDataFromAccounts(txs: Transaction[], accounts: { id: string; name: string }[]) {
+  const accById = new Map(accounts.map((a) => [a.id, a]));
+  const sums = new Map<string, number>();
+  for (const t of txs) {
+    // treat transfers same as other txs for account-level view
+    const name = accById.get(t.accountId)?.name ?? t.accountId;
+    sums.set(name, (sums.get(name) ?? 0) + Math.abs(t.amountCents));
+  }
+  return [...sums.entries()].map(([name, cents]) => ({ name, value: Math.round(cents) / 100 })).sort((a,b)=>b.value-a.value);
+}
+
+export function donutDataFromPeople(txs: Transaction[], persons: { id: string; name: string }[], accounts: { id: string; personId: string }[]) {
+  const personById = new Map(persons.map((p)=>[p.id,p]));
+  const accToPerson = new Map(accounts.map((a)=>[a.id,a.personId]));
+  const sums = new Map<string, number>();
+  for (const t of txs) {
+    const pid = accToPerson.get(t.accountId);
+    const name = pid ? (personById.get(pid)?.name ?? pid) : 'Unknown';
+    sums.set(name, (sums.get(name) ?? 0) + Math.abs(t.amountCents));
+  }
+  return [...sums.entries()].map(([name,cents])=>({ name, value: Math.round(cents)/100 })).sort((a,b)=>b.value-a.value);
+}
+
 export interface TransferFlow {
   fromAccountId: string;
   toAccountId: string;

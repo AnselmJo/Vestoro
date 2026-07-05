@@ -1,15 +1,38 @@
 import { formatCents } from '../../lib/money';
-import { categoryBars, donutDataFromCategoryBars } from '../../lib/analytics';
+import { categoryBars, donutDataFromCategoryBars, donutDataFromAccounts, donutDataFromPeople } from '../../lib/analytics';
 import type { Transaction, Category } from '../../db/schema';
 import { useState } from 'react';
 import { DonutChart } from '../../components/DonutChart';
+import { Modal } from '../../components/ui';
+import TransactionRow from '../../components/TransactionRow';
 
-export function CategoriesTab({ txs, categories }:{ txs: Transaction[]; categories: Category[] }) {
+export function CategoriesTab({ txs, categories, accounts, persons }:{ txs: Transaction[]; categories: Category[]; accounts?: any[]; persons?: any[] }) {
   const [showDonut, setShowDonut] = useState(true);
   const [activeGroup, setActiveGroup] = useState('categories');
+  const [openSlice, setOpenSlice] = useState<string | null>(null);
 
   const bars = categoryBars(txs, categories);
-  const donut = donutDataFromCategoryBars(txs, categories);
+  const donutCats = donutDataFromCategoryBars(txs, categories);
+  const donutAcc = donutDataFromAccounts(txs, accounts ?? []);
+  const donutPeople = donutDataFromPeople(txs, persons ?? [], accounts ?? []);
+
+  const groupOptions = [{ id: 'categories', label: 'Categories' }, { id: 'accounts', label: 'Accounts' }, { id: 'people', label: 'People' }];
+
+  const donut = activeGroup === 'categories' ? donutCats : activeGroup === 'accounts' ? donutAcc : donutPeople;
+
+  const handleSliceClick = (name: string) => {
+    setOpenSlice(name);
+  };
+
+  const filteredTxs = openSlice ? txs.filter((t) => {
+    if (activeGroup === 'categories') return (categories.find((c) => c.id === t.categoryId)?.name ?? 'Ohne Kategorie') === openSlice;
+    if (activeGroup === 'accounts') return (accounts?.find((a) => a.id === t.accountId)?.name ?? t.accountId) === openSlice;
+    if (activeGroup === 'people') {
+      const acc = accounts?.find((a) => a.id === t.accountId);
+      const pid = acc?.personId; return persons?.find((p) => p.id === pid)?.name === openSlice;
+    }
+    return false;
+  }) : [];
 
   return (
     <div className="card p-4">
@@ -23,10 +46,10 @@ export function CategoriesTab({ txs, categories }:{ txs: Transaction[]; categori
         <DonutChart
           data={donut}
           centerLabel="Kategorien"
-          groupOptions={[{ id: 'categories', label: 'Categories' }, { id: 'accounts', label: 'Accounts' }, { id: 'people', label: 'People' }]}
+          groupOptions={groupOptions}
           activeGroup={activeGroup}
           onGroupChange={(g) => setActiveGroup(g)}
-          onSliceClick={(_name) => { /* open drill */ }}
+          onSliceClick={handleSliceClick}
           height={320}
         />
       ) : (
@@ -41,6 +64,28 @@ export function CategoriesTab({ txs, categories }:{ txs: Transaction[]; categori
             </div>
           ))}
         </div>
+      )}
+
+      {openSlice && (
+        <Modal title={`Matches: ${openSlice}`} onClose={() => setOpenSlice(null)} wide>
+          <table className="w-full">
+            <thead>
+              <tr>
+                <th className="text-left p-2">Date</th>
+                <th className="text-left p-2">Account</th>
+                <th className="text-left p-2">Counterparty</th>
+                <th className="text-left p-2">Purpose</th>
+                <th className="text-left p-2">Category</th>
+                <th className="text-right p-2">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTxs.map((t) => (
+                <TransactionRow key={t.id} t={t} accountName={new Map((accounts ?? []).map((a:any)=>[a.id,a.name]))} categories={categories} transferPartner={new Map()} onCategoryChange={async () => {}} compact />
+              ))}
+            </tbody>
+          </table>
+        </Modal>
       )}
     </div>
   );
