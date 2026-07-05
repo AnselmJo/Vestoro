@@ -1,33 +1,6 @@
 
 
----
 
-### CAT-03: Bulk categorization — from a single transaction *and* from the recipient overview
-*(merges new #8 with previous BUDGET-CAT-08 — same underlying action, two entry points)*
-**Files:** `src/views/Transactions.tsx`, `db/repo.ts::bulkCategorize` (existing).
-
-Two entry points into the same logic:
-1. **From a transaction row** (#8 as specified): clicking a row opens a popover with "Categorize only this one" / "Categorize all from **[Recipient]** (N matches)" / "Create rule without retroactive application". "All from recipient" matches on `counterparty`, case-insensitive/trimmed, across all time (ignore current filter), with a toast "N transactions updated, rule created".
-2. **From a recipient-grouped overview** (already partially exists as "Bulk-Kategorisierung"): grouped by counterparty, sorted by uncategorized count, with the same "create rule" checkbox.
-
-Implement as `repo.ts::bulkCategorizeByCounterparty(counterparty, categoryId, { createRule: boolean })` used by both UIs, so there's one code path instead of two.
-
-**Tests:** `tests/logic.test.ts`, isolated with `fake-indexeddb` per `tests/demo-regression.test.ts` pattern.
-
-**Acceptance:** Both entry points produce identical results for the same recipient; rule creation is optional and explicit in both.
-
----
-
-### CAT-04: Smart rule suggestions from transaction memo (regex-based)
-*(was: new #9, absorbs the "suggestion mechanism" ideas from previous BUDGET-CAT-09)*
-**New file:** `src/lib/smartRules.ts`.
-
-1. Regex pattern library for memo/purpose keywords → category suggestions: `miete`, `nebenkosten`, `gehalt`, `lohn`, `kindergeld`, `rente`, `dividende`, `zins(en)?`, `erstattung`, `rückzahlung`, `kfz.?versicherung`, `rundfunk`, `gez`, `spende`. Extend `Rule.op` with `'regex'`, guarded (max pattern length, `try/catch` around `new RegExp`, no nested quantifiers — basic ReDoS protection).
-2. `suggestCategoryFromPurpose(purpose: string): string | null` — returns a **category name** (not ID, since the category may not exist for this user), matched against the pattern library.
-3. Import-flow integration (`db/repo.ts::importRows`): if no existing rule matches, try `suggestCategoryFromPurpose` before falling back to "Unkategorisiert". If the suggested category name doesn't exist in this user's DB, do **not** auto-create it — fall back cleanly instead.
-4. **UI extension** (folds in the earlier idea): where a transaction is uncategorized and a suggestion exists but confidence is only partial (e.g. rule almost-matches), show an inline "vorgeschlagen: X" chip in the transaction row, acceptable with one click — don't auto-apply low-confidence matches silently.
-
-**Tests:** `tests/smartRules.test.ts` — ≥2 realistic German example purposes per pattern, plus negative tests for near-miss false positives.
 
 ---
 
@@ -59,12 +32,6 @@ Top-right segmented control `Monat | Quartal | Jahr` + dynamic "Aktueller Monat/
 ### DASH-02: €/% toggle on the Sankey diagram
 Small `€ | %` toggle in the Sankey card's top-right corner, matching the existing category-share toggle. Persist last-used mode.
 
-### INFRA-02: Performance hardening (bring forward from P4)
-*(was: new #20 — moved up because the 790 KB chunk warning and 938-transaction dataset are already present today, not a future problem)*
-- Virtualize the transaction table (`@tanstack/react-virtual`) once the filtered set exceeds 500 rows.
-- Memoize `sankeyData`/`categoryBars`/`monthlyBars` (key: hash of period + filters + transaction count) — currently recomputed on every render.
-- Code-split ECharts via dynamic `import()`, separate `manualChunks` for `echarts`/`dexie` in `vite.config.ts`.
-- Deliverable: `docs/PERFORMANCE-BUDGET.md` with target numbers (e.g. "dashboard render < 200 ms at 10k transactions") + `scripts/generate-load-test-data.ts` for manual checks (not CI).
 
 ---
 

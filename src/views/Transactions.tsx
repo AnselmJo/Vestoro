@@ -19,6 +19,7 @@ export function Transactions({ scope, search, onSearch }: {
   const accounts = useLiveQuery(() => db.accounts.toArray(), []) ?? [];
   const categories = useLiveQuery(() => db.categories.toArray(), []) ?? [];
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [directionFilter, setDirectionFilter] = useState<'all'|'in'|'out'>('all');
   const [monthKey, setMonthKey] = useState(currentMonthKey());
   const [allPeriods, setAllPeriods] = useState(false);
   const [limit, setLimit] = useState(PAGE);
@@ -29,6 +30,8 @@ export function Transactions({ scope, search, onSearch }: {
   const [categorizeCategory, setCategorizeCategory] = useState<string>('');
   const [confirmBulk, setConfirmBulk] = useState<{ counterparty: string; categoryId: string; matches: number; createRule: boolean } | null>(null);
   // rulesOpen modal removed; rules are managed on their own page
+  const [undoOpen, setUndoOpen] = useState(false);
+  void undoOpen;
 
   const scopedAccountIds = useMemo(() => new Set(
     accounts
@@ -66,6 +69,9 @@ export function Transactions({ scope, search, onSearch }: {
       const q = search.toLowerCase();
       if (!t.counterparty.toLowerCase().includes(q) && !t.purpose.toLowerCase().includes(q)) return false;
     }
+    // direction filter
+    if (directionFilter === 'in' && t.amountCents <= 0) return false;
+    if (directionFilter === 'out' && t.amountCents >= 0) return false;
     return true;
   });
 
@@ -103,6 +109,11 @@ export function Transactions({ scope, search, onSearch }: {
           {de.tx.allPeriods}
         </label>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
+          <div className="seg" style={{ alignItems: 'center' }}>
+            <button className={directionFilter === 'all' ? 'active' : ''} onClick={() => setDirectionFilter('all')}>Alle</button>
+            <button className={directionFilter === 'in' ? 'active' : ''} onClick={() => setDirectionFilter('in')}>Eingehend</button>
+            <button className={directionFilter === 'out' ? 'active' : ''} onClick={() => setDirectionFilter('out')}>Ausgehend</button>
+          </div>
           <input id="tx-search" className="input max-w-52" placeholder={de.tx.search}
             value={search} onChange={(e) => onSearch(e.target.value)} />
           <select className="input max-w-44" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
@@ -114,6 +125,7 @@ export function Transactions({ scope, search, onSearch }: {
             {de.tx.bulk}{uncategorizedCount > 0 ? ` (${uncategorizedCount})` : ''}
           </button>
           <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'rules' }))}>{de.tx.rulesButton}</button>
+          <button className="btn" onClick={() => setUndoOpen(true)}>{de.tx.recentChanges}</button>
         </div>
       </div>
 

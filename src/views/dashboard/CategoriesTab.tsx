@@ -1,7 +1,7 @@
 import { formatCents } from '../../lib/money';
 import { categoryBars, donutDataFromCategoryBars, donutDataFromAccounts, donutDataFromPeople } from '../../lib/analytics';
 import type { Transaction, Category } from '../../db/schema';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { DonutChart } from '../../components/DonutChart';
 import { Modal, useToast } from '../../components/ui';
 import TransactionRow from '../../components/TransactionRow';
@@ -29,10 +29,12 @@ export function CategoriesTab({ txs, categories, accounts, persons }:{ txs: Tran
   useEffect(() => { void setSetting('categories.view', showDonut ? 'donut' : 'list'); }, [showDonut]);
   useEffect(() => { void setSetting('categories.group', activeGroup); }, [activeGroup]);
 
-  const bars = categoryBars(txs, categories);
-  const donutCats = donutDataFromCategoryBars(txs, categories);
-  const donutAcc = donutDataFromAccounts(txs, accounts ?? []);
-  const donutPeople = donutDataFromPeople(txs, persons ?? [], accounts ?? []);
+  const { bars, donutCats, donutAcc, donutPeople } = useMemo(() => ({
+    bars: categoryBars(txs, categories),
+    donutCats: donutDataFromCategoryBars(txs, categories),
+    donutAcc: donutDataFromAccounts(txs, accounts ?? []),
+    donutPeople: donutDataFromPeople(txs, persons ?? [], accounts ?? []),
+  }), [txs, categories, accounts, persons]);
 
   const groupOptions = [{ id: 'categories', label: 'Categories' }, { id: 'accounts', label: 'Accounts' }, { id: 'people', label: 'People' }];
 

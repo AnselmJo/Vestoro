@@ -1,9 +1,10 @@
+import { useMemo } from 'react';
 import { Chart } from '../../components/ui';
 import type { Transaction } from '../../db/schema';
 import { monthlyBars } from '../../lib/analytics';
 
 export function CashflowTab({ txs, months }:{ txs: Transaction[]; months: string[] }) {
-  const monthly = monthlyBars(txs, months);
+  const monthly = useMemo(() => monthlyBars(txs, months), [txs, months]);
   const option = {
     grid: { left: 60, right: 20, top: 30, bottom: 25 },
     tooltip: { valueFormatter: (v:number) => `${v.toLocaleString('de-DE')} €` },

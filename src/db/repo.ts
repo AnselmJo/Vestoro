@@ -1,5 +1,5 @@
 import { db } from './schema';
-import type { Account, AccountType, Category, Person, Rule, Transaction, UndoEntry } from './schema';
+import type { Account, AccountType, Category, Person, Rule, Transaction, UndoEntry, AuditLog } from './schema';
 import type { ParsedRow } from '../lib/csv/profiles';
 import { importHash } from '../lib/dedupe';
 import { detectTransfers } from '../lib/transfers';
@@ -251,6 +251,14 @@ export async function restoreUndoEntry(id: string): Promise<void> {
 
 export async function listUndoEntries(): Promise<UndoEntry[]> {
   return await db.undoEntries.orderBy('createdAt').reverse().toArray();
+}
+
+export async function deleteUndoEntry(id: string): Promise<void> {
+  await db.undoEntries.delete(id as any);
+}
+
+export async function listAuditEntries(limit = 100): Promise<AuditLog[]> {
+  return await db.auditLogs.orderBy('ts').reverse().limit(limit).toArray() as any;
 }
 
 export async function logAudit(action: string, details?: Record<string, any>): Promise<string> {

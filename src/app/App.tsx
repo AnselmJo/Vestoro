@@ -34,29 +34,28 @@ interface NavGroup { label: string; items: NavItem[]; collapsible?: boolean; }
 
 const NAV: NavGroup[] = [
   {
-    label: de.nav.overview,
+    label: de.nav.groupBudget,
     items: [
       { id: 'dashboard', label: de.nav.dashboard, icon: '◧' },
-      { id: 'transactions', label: de.nav.transactions, icon: '≡' },
       { id: 'flows', label: 'Transfer Flows', icon: '⇄' },
-      { id: 'rules', label: 'Kategorien & Regeln', icon: '⚙' },
+      { id: 'transactions', label: de.nav.transactions, icon: '≡' },
       { id: 'accounts', label: de.nav.accounts, icon: '▤' },
     ],
   },
   {
-    label: de.nav.planning, collapsible: true,
-    items: [
-      { id: 'calculators', label: de.nav.calculators, icon: '∑' },
-      { id: 'budgets', label: de.nav.budgets, icon: '◔', soon: true },
-      { id: 'goals', label: de.nav.goals, icon: '◎', soon: true },
-    ],
-  },
-  {
-    label: de.nav.wealth, collapsible: true,
+    label: de.nav.groupPortfolio, collapsible: true,
     items: [
       { id: 'portfolio', label: de.nav.portfolio, icon: '▲', soon: true },
       { id: 'contracts', label: de.nav.contracts, icon: '§', soon: true },
       { id: 'reports', label: de.nav.reports, icon: '✦', soon: true },
+    ],
+  },
+  {
+    label: de.nav.groupPlan, collapsible: true,
+    items: [
+      { id: 'calculators', label: de.nav.calculators, icon: '∑' },
+      { id: 'budgets', label: de.nav.budgets, icon: '◔', soon: true },
+      { id: 'goals', label: de.nav.goals, icon: '◎', soon: true },
     ],
   },
 ];

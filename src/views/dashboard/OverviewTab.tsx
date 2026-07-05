@@ -13,6 +13,8 @@ export function OverviewTab({
   periodLabel,
   sankeyOption,
   sankey,
+  sankeyUnit,
+  onChangeSankeyUnit,
   periodTxs,
   categories,
   accountName,
@@ -23,12 +25,14 @@ export function OverviewTab({
   setFullscreenSankey,
   onImport,
 }: {
-  mode: 'month'|'year';
-  setMode: (m: 'month'|'year') => void;
+  mode: 'month'|'quarter'|'year';
+  setMode: (m: 'month'|'quarter'|'year') => void;
   monthKey: string; setMonthKey: (k: string) => void;
   periodLabel: string;
   sankeyOption: any;
   sankey: { nodes: any[]; links: any[] };
+  sankeyUnit: 'euro'|'percent';
+  onChangeSankeyUnit: (u: 'euro'|'percent') => void;
   periodTxs: Transaction[];
   categories: Category[];
   accountName: Map<string,string>;
@@ -41,6 +45,7 @@ export function OverviewTab({
 }) {
   // reference unused props to avoid TS no-unused errors
   void setMonthKey;
+  void sankeyOption;
   void sankey;
   void fullscreenSankey;
 
@@ -49,7 +54,7 @@ export function OverviewTab({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <Seg options={[{ id: 'month', label: 'Month' }, { id: 'year', label: 'Year' }]} value={mode} onChange={(v) => setMode(v as any)} />
+        <Seg options={[{ id: 'month', label: 'Month' }, { id: 'quarter', label: 'Quarter' }, { id: 'year', label: 'Year' }]} value={mode} onChange={(v) => setMode(v as any)} />
         <div className="ml-auto">
           <button className="btn" onClick={onImport}>Import</button>
         </div>
@@ -70,6 +75,10 @@ export function OverviewTab({
           </div>
           <div className="flex items-center gap-2">
             {selectedCategory && <button className="btn" onClick={() => setSelectedCategory(null)}>Zurück</button>}
+            <div className="seg">
+              <button className={sankeyUnit === 'euro' ? 'active' : ''} onClick={() => onChangeSankeyUnit('euro')}>€</button>
+              <button className={sankeyUnit === 'percent' ? 'active' : ''} onClick={() => onChangeSankeyUnit('percent')}>%</button>
+            </div>
             <button className="btn text-xs" onClick={() => setFullscreenSankey(true)}>⛶ Full</button>
           </div>
         </div>

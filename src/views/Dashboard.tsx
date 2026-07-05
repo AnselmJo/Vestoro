@@ -1,9 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { db } from '../db/schema';
 import { shiftMonth, currentMonthKey, monthLabel } from '../lib/money';
 import { inPeriod, sankeyData } from '../lib/analytics';
 import { Seg } from '../components/ui';
+import { getSetting, setSetting } from '../db/repo';
 import { ImportDialog } from './ImportDialog';
 import { OverviewTab } from './dashboard/OverviewTab';
 import { CashflowTab } from './dashboard/CashflowTab';
@@ -11,7 +12,7 @@ import { CategoriesTab } from './dashboard/CategoriesTab';
 import { AccountsCompareTab } from './dashboard/AccountsCompareTab';
 import type { Scope, View } from '../app/App';
 
-type PeriodMode = 'month' | 'year';
+type PeriodMode = 'month' | 'quarter' | 'year';
 
 export function Dashboard({ scope, onNavigate, setIncludeTransfers }: { scope: Scope; onNavigate: (v: View) => void; setIncludeTransfers?: (v: boolean) => void }) {
   // reference to avoid unused parameter errors
@@ -24,6 +25,19 @@ export function Dashboard({ scope, onNavigate, setIncludeTransfers }: { scope: S
   const [fullscreenSankey, setFullscreenSankey] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | '__none__' | null>(null);
   const [activeTab, setActiveTab] = useState<'overview'|'cashflow'|'categories'|'accounts'>('overview');
+  const [sankeyUnit, setSankeyUnit] = useState<'euro'|'percent'>('euro');
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const s = await getSetting<string>('sankey.unit');
+      if (!mounted) return;
+      if (s === 'percent' || s === 'euro') setSankeyUnit(s);
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => { setSetting('sankey.unit', sankeyUnit); }, [sankeyUnit]);
 
   const accounts = useLiveQuery(() => db.accounts.toArray(), []) ?? [];
   const persons = useLiveQuery(() => db.persons.toArray(), []) ?? [];
@@ -65,6 +79,8 @@ export function Dashboard({ scope, onNavigate, setIncludeTransfers }: { scope: S
           periodLabel={mode === 'month' ? monthLabel(monthKey) : String(yearOfKey)}
           sankeyOption={{ series: [{ type: 'sankey', data: sankey.nodes, links: sankey.links }] }}
           sankey={sankey}
+          sankeyUnit={sankeyUnit}
+          onChangeSankeyUnit={(u) => setSankeyUnit(u)}
           periodTxs={periodTxs}
           categories={categories}
           accountName={accountName}

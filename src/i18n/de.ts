@@ -17,6 +17,10 @@ export const de = {
     reports: 'Berichte',
     settings: 'Einstellungen',
     soon: 'bald',
+    // new group labels
+    groupBudget: 'Budget',
+    groupPortfolio: 'Portfolio',
+    groupPlan: 'Planen',
   },
   comingSoon: {
     title: 'Bald verfügbar',
@@ -99,6 +103,10 @@ export const de = {
     undoDone: 'Rückgängig gemacht',
     confirmBulkTitle: 'Bulk-Änderung bestätigen',
     confirmBulkBody: (n: number) => `Diese Aktion ändert ${n} Transaktionen. Fortfahren?`,
+    recentChanges: 'Änderungsverlauf',
+    recentChangesEmpty: 'Keine kürzlichen Änderungen.',
+    restore: 'Wiederherstellen',
+    delete: 'Löschen',
   },
   import: {
     title: 'CSV-Import',
