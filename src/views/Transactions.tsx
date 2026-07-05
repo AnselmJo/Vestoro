@@ -4,7 +4,7 @@ import { db } from '../db/schema';
 import type { Transaction } from '../db/schema';
 import { de } from '../i18n/de';
 import { currentMonthKey, formatCents, monthLabel, shiftMonth } from '../lib/money';
-import { addRuleAndApply, bulkCategorize, setCategory, bulkCategorizeByCounterparty, restoreCategorization } from '../db/repo';
+import { addRuleAndApply, bulkCategorize, setCategory, bulkCategorizeByCounterparty, saveUndoEntry, restoreUndoEntry, logAudit } from '../db/repo';
 import { Modal, useToast } from '../components/ui';
 // RulesManager is now a separate page; navigate via global event
 import TransactionRow from '../components/TransactionRow';
@@ -27,6 +27,7 @@ export function Transactions({ scope, search, onSearch }: {
   const [categorizeOpen, setCategorizeOpen] = useState<Transaction | null>(null);
   const [categorizeCreateRule, setCategorizeCreateRule] = useState(true);
   const [categorizeCategory, setCategorizeCategory] = useState<string>('');
+  const [confirmBulk, setConfirmBulk] = useState<{ counterparty: string; categoryId: string; matches: number; createRule: boolean } | null>(null);
   // rulesOpen modal removed; rules are managed on their own page
 
   const scopedAccountIds = useMemo(() => new Set(
@@ -193,9 +194,14 @@ export function Transactions({ scope, search, onSearch }: {
             }}>{de.tx.categorizeThis}</button>
             <button className="btn btn-primary" onClick={async () => {
             if (!categorizeCategory || !categorizeOpen) return;
+            // if >100 matches, ask for confirmation
+            if (categorizeMatches > 100) { setConfirmBulk({ counterparty: categorizeOpen.counterparty, categoryId: categorizeCategory, matches: categorizeMatches, createRule: categorizeCreateRule }); return; }
             try {
               const res = await bulkCategorizeByCounterparty(categorizeOpen.counterparty, categorizeCategory, { createRule: categorizeCreateRule });
-              toast.add({ message: de.tx.bulkApplied(res.updated), tone: 'success', action: { label: de.tx.undo, onClick: async () => { try { await restoreCategorization(res.prevs); toast.add({ message: 'Rückgängig gemacht', tone: 'info' }); } catch (e) { /* ignore */ } } } });
+              // persist undo and audit
+              const undoId = await saveUndoEntry(res.prevs, `Bulk categorize ${categorizeOpen.counterparty}`);
+              await logAudit('bulkCategorizeByCounterparty', { counterparty: categorizeOpen.counterparty, categoryId: categorizeCategory, matched: res.updated, undoId });
+              toast.add({ message: de.tx.bulkApplied(res.updated), tone: 'success', action: { label: de.tx.undo, onClick: async () => { try { await restoreUndoEntry(undoId); toast.add({ message: de.tx.undoDone, tone: 'info' }); } catch (e) { /* ignore */ } } } });
             } catch (e: any) {
               toast.add({ message: e?.message ?? 'Fehler', tone: 'error' });
             }
@@ -204,6 +210,28 @@ export function Transactions({ scope, search, onSearch }: {
           </div>
         </Modal>
       )})()}
+
+    {confirmBulk && (
+      <Modal title={de.tx.confirmBulkTitle} onClose={() => setConfirmBulk(null)}>
+        <p className="mb-4">{de.tx.confirmBulkBody(confirmBulk.matches)}</p>
+        <div className="flex justify-end gap-2">
+          <button className="btn" onClick={() => setConfirmBulk(null)}>{de.common.cancel}</button>
+          <button className="btn btn-primary" onClick={async () => {
+            try {
+              const res = await bulkCategorizeByCounterparty(confirmBulk.counterparty, confirmBulk.categoryId, { createRule: confirmBulk.createRule });
+              const undoId = await saveUndoEntry(res.prevs, `Bulk categorize ${confirmBulk.counterparty}`);
+              await logAudit('bulkCategorizeByCounterparty', { counterparty: confirmBulk.counterparty, categoryId: confirmBulk.categoryId, matched: res.updated, undoId });
+              toast.add({ message: de.tx.bulkApplied(res.updated), tone: 'success', action: { label: de.tx.undo, onClick: async () => { try { await restoreUndoEntry(undoId); toast.add({ message: de.tx.undoDone, tone: 'info' }); } catch (e) { /* ignore */ } } } });
+            } catch (e: any) {
+              toast.add({ message: e?.message ?? 'Fehler', tone: 'error' });
+            }
+            setConfirmBulk(null);
+            setCategorizeOpen(null);
+          }}>{de.common.save}</button>
+        </div>
+      </Modal>
+    )}
+
     </div>
   );
 }
@@ -238,7 +266,9 @@ function BulkCategorize({ txs, onClose }: { txs: Transaction[]; onClose: () => v
     }
     if (group.counterparty !== '—') {
       const res = await bulkCategorizeByCounterparty(group.counterparty, categoryId, { createRule: withRule });
-      toast.add({ message: de.tx.bulkApplied(res.updated), tone: 'success', action: { label: de.tx.undo, onClick: async () => { try { await restoreCategorization(res.prevs); toast.add({ message: 'Rückgängig gemacht', tone: 'info' }); } catch (e) { /* ignore */ } } } });
+      const undoId = await saveUndoEntry(res.prevs, `Bulk categorize ${group.counterparty}`);
+      await logAudit('bulkCategorizeByCounterparty', { counterparty: group.counterparty, categoryId, matched: res.updated, undoId });
+      toast.add({ message: de.tx.bulkApplied(res.updated), tone: 'success', action: { label: de.tx.undo, onClick: async () => { try { await restoreUndoEntry(undoId); toast.add({ message: de.tx.undoDone, tone: 'info' }); } catch (e) { /* ignore */ } } } });
     } else {
       await bulkCategorize(group.txIds, categoryId);
       toast.add({ message: de.tx.bulkApplied(group.txIds.length), tone: 'success' });

@@ -57,6 +57,9 @@ export interface Rule {
 
 export interface Setting { key: string; value: unknown; }
 
+export interface UndoEntry { id: string; createdAt: string; desc?: string; prevs: Array<{ id: string; previousCategoryId?: string }>; }
+export interface AuditLog { id: string; ts: string; action: string; details?: Record<string, any>; }
+
 export class VestoroDb extends Dexie {
   persons!: Table<Person, string>;
   accounts!: Table<Account, string>;
@@ -64,6 +67,8 @@ export class VestoroDb extends Dexie {
   transactions!: Table<Transaction, string>;
   rules!: Table<Rule, string>;
   settings!: Table<Setting, string>;
+  undoEntries!: Table<UndoEntry, string>;
+  auditLogs!: Table<AuditLog, string>;
 
   constructor() {
     super('vestoro');
@@ -134,6 +139,22 @@ export class VestoroDb extends Dexie {
           if ((c as any).active === undefined) (c as any).active = true;
           if ((c as any).isTemplate === undefined) (c as any).isTemplate = false;
         });
+      });
+
+    // v5: undo entries and audit logs for operations
+    this.version(5)
+      .stores({
+        persons: 'id',
+        accounts: 'id, personId, iban',
+        categories: 'id, kind',
+        transactions: 'id, accountId, bookingDate, importHash, categoryId, transferGroupId',
+        rules: 'id, priority',
+        settings: 'key',
+        undoEntries: 'id, createdAt',
+        auditLogs: 'id, ts, action',
+      })
+      .upgrade(async () => {
+        // nothing to migrate; new tables start empty
       });
   }
 }

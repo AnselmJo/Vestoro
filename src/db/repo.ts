@@ -1,5 +1,5 @@
 import { db } from './schema';
-import type { Account, AccountType, Category, Person, Rule, Transaction } from './schema';
+import type { Account, AccountType, Category, Person, Rule, Transaction, UndoEntry } from './schema';
 import type { ParsedRow } from '../lib/csv/profiles';
 import { importHash } from '../lib/dedupe';
 import { detectTransfers } from '../lib/transfers';
@@ -233,6 +233,30 @@ export async function restoreCategorization(prevs: Array<{ id: string; previousC
       await db.transactions.update(p.id, { categoryId: p.previousCategoryId });
     }
   });
+}
+
+export async function saveUndoEntry(prevs: Array<{ id: string; previousCategoryId?: string }>, desc?: string): Promise<string> {
+  const id = uid();
+  const entry = { id, createdAt: new Date().toISOString(), desc, prevs };
+  await db.undoEntries.add(entry as any);
+  return id;
+}
+
+export async function restoreUndoEntry(id: string): Promise<void> {
+  const entry = await db.undoEntries.get(id as any);
+  if (!entry) throw new Error('Undo entry not found');
+  await restoreCategorization(entry.prevs);
+  await db.undoEntries.delete(id as any);
+}
+
+export async function listUndoEntries(): Promise<UndoEntry[]> {
+  return await db.undoEntries.orderBy('createdAt').reverse().toArray();
+}
+
+export async function logAudit(action: string, details?: Record<string, any>): Promise<string> {
+  const id = uid();
+  await db.auditLogs.add({ id, ts: new Date().toISOString(), action, details } as any);
+  return id;
 }
 
 export async function addRuleAndApply(rule: Omit<Rule, 'id' | 'priority'>): Promise<number> {

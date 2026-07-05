@@ -133,6 +133,18 @@ const ToastCtx = createContext<{ add: (t: Omit<Toast,'id'>) => void } | null>(nu
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'u') return;
+      // try trigger the first toast action button
+      const root = document.querySelector('.fixed.right-4.bottom-4');
+      const btn = root?.querySelector('button');
+      if (btn) (btn as HTMLButtonElement).click();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const add = useCallback((t: Omit<Toast,'id'>) => {
     const id = crypto.randomUUID();
     setToasts((s) => [...s, { id, ...t }]);

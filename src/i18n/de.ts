@@ -96,6 +96,9 @@ export const de = {
     categorizeSelect: 'Kategorie wählen …',
     rulesButton: 'Kategorien & Regeln',
     undo: 'Rückgängig',
+    undoDone: 'Rückgängig gemacht',
+    confirmBulkTitle: 'Bulk-Änderung bestätigen',
+    confirmBulkBody: (n: number) => `Diese Aktion ändert ${n} Transaktionen. Fortfahren?`,
   },
   import: {
     title: 'CSV-Import',
