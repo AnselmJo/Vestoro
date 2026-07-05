@@ -6,6 +6,7 @@ import { formatCents, monthLabel } from '../lib/money';
 import { bulkCategorizeByCounterparty, saveUndoEntry, logAudit } from '../db/repo';
 import { useToast } from '../components/ui';
 import { de } from '../i18n/de';
+import Typeahead from '../components/Typeahead';
 
 export default function CategorizationCenter({ onClose }: { onClose: () => void }) {
   const txs = useLiveQuery(() => db.transactions.toArray(), []) ?? [];
@@ -28,6 +29,7 @@ export default function CategorizationCenter({ onClose }: { onClose: () => void 
   }, [txs]);
 
   const [activeTab, setActiveTab] = useState<'quick'|'rules'|'progress'>('quick');
+  const [previews, setPreviews] = useState<Record<string, boolean>>({});
 
   async function assignGroup(group: { counterparty: string; txIds: string[]; totalCents: number }, categoryId: string) {
     if (!categoryId) return;
@@ -67,15 +69,48 @@ export default function CategorizationCenter({ onClose }: { onClose: () => void 
           <p className="text-sm mb-3" style={{ color: 'var(--text-dim)' }}>{de.tx.bulkHint}</p>
           <div className="flex flex-col">
             {groups.map((g) => (
-              <div key={g.counterparty + g.txIds.length} className="flex items-center gap-3 py-2.5" style={{ borderTop: '1px solid var(--border)' }}>
-                <div className="flex-1 min-w-0">
-                  <div className="truncate font-medium">{g.counterparty}</div>
-                  <div className="text-xs mono" style={{ color: 'var(--text-dim)' }}>{g.txIds.length}× · {formatCents(g.totalCents)}</div>
+              <div key={g.counterparty + g.txIds.length} className="flex flex-col gap-2 py-2.5" style={{ borderTop: '1px solid var(--border)' }}>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <div className="truncate font-medium">{g.counterparty}</div>
+                      <button className="btn btn-ghost btn-xs" onClick={() => setPreviews((p) => ({...p, [g.counterparty]: !p[g.counterparty]}))}>{previews[g.counterparty] ? 'Hide' : `Preview (${Math.min(5, g.txIds.length)})`}</button>
+                    </div>
+                    <div className="text-xs mono" style={{ color: 'var(--text-dim)' }}>{g.txIds.length}× · {formatCents(g.totalCents)}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Typeahead
+                      fetchOptions={async (q) => {
+                        const ql = q.trim().toLowerCase();
+                        const filtered = categories.filter((c) => c.kind === (g.totalCents > 0 ? 'income' : 'expense'))
+                          .filter((c) => !ql || c.name.toLowerCase().includes(ql))
+                          .slice(0, 50)
+                          .map((c) => ({ id: c.id, label: c.name, meta: c.kind, color: c.color }));
+                        return Promise.resolve(filtered);
+                      }}
+                      onSelect={async (opt) => { await assignGroup(g, opt.id); }}
+                      placeholder={de.tx.bulkApply}
+                    />
+                    <button className="btn btn-ghost btn-xs" onClick={() => assignGroup(g, '')}>Apply...</button>
+                  </div>
                 </div>
-                <select className="input max-w-52 text-xs py-1.5" defaultValue="" onChange={async (e) => { await assignGroup(g, e.target.value); }}>
-                  <option value="" disabled>{de.tx.bulkApply} …</option>
-                  {categories.filter((c) => c.kind === (g.totalCents > 0 ? 'income' : 'expense')).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                {previews[g.counterparty] && (
+                  <div className="ml-4">
+                    <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Erste {Math.min(5, g.txIds.length)} Transaktionen</div>
+                    <div className="grid grid-cols-1 gap-1 text-sm">
+                      {g.txIds.slice(0,5).map((id) => {
+                        const t = txs.find((x) => x.id === id);
+                        if (!t) return null;
+                        return (
+                          <div key={id} className="flex items-center justify-between p-1 rounded hover:bg-surface-2">
+                            <div className="truncate">{t.counterparty || t.purpose || '—'}</div>
+                            <div className="mono text-xs" style={{ color: 'var(--text-dim)' }}>{formatCents(t.amountCents)} · {t.bookingDate}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
