@@ -1,19 +1,17 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
-import type { CategoryKind } from '../db/schema';
 import { de } from '../i18n/de';
-import { addCategory, createPerson, deleteCategory, deleteAllData, reapplyRules, clearDemoData } from '../db/repo';
+import { createPerson, deleteAllData, reapplyRules, clearDemoData, renamePerson, deletePerson, renameAccount, reassignAccountOwner, deleteAccount } from '../db/repo';
 import { exportBackup, importBackup, downloadJson } from '../lib/backup';
 import { loadDemoData } from '../lib/demo';
 
 export function Settings() {
   const persons = useLiveQuery(() => db.persons.toArray(), []) ?? [];
+  const accounts = useLiveQuery(() => db.accounts.toArray(), []) ?? [];
   const categories = useLiveQuery(() => db.categories.toArray(), []) ?? [];
   const rules = useLiveQuery(() => db.rules.orderBy('priority').toArray(), []) ?? [];
-  const [catName, setCatName] = useState('');
   const [personName, setPersonName] = useState('');
-  const [catKind, setCatKind] = useState<CategoryKind>('expense');
   const [confirmText, setConfirmText] = useState('');
   const [toast, setToast] = useState('');
 
@@ -50,10 +48,36 @@ export function Settings() {
 
       <section className="card p-4">
         <h3 className="font-medium mb-3">{de.settings.persons}</h3>
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div className="flex flex-col gap-2 mb-3">
           {persons.map((p) => (
-            <span key={p.id} className="text-xs px-2.5 py-1 rounded-full"
-              style={{ background: 'var(--surface-2)' }}>{p.name}</span>
+            <div key={p.id} className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">{p.name}</div>
+                <div className="text-xs" style={{ color: 'var(--text-dim)' }}>
+                  {accounts.filter((a) => a.personId === p.id).map((a) => a.name).join(' · ') || '—'}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button className="btn" onClick={async () => {
+                  const newName = window.prompt('Neuer Name', p.name);
+                  if (newName) { await renamePerson(p.id, newName); setToast('Gespeichert'); }
+                }}>{de.settings.rename}</button>
+                <button className="btn" onClick={async () => {
+                  const linked = accounts.filter((a) => a.personId === p.id);
+                  if (linked.length === 0) {
+                    if (confirm(`Lösche Person ${p.name}?`)) { await deletePerson(p.id); setToast('Gelöscht'); }
+                    return;
+                  }
+                  const target = window.prompt('ID der Person zum Zuweisen aller Konten (leer = abbrechen)');
+                  if (!target) return;
+                  if (!persons.find((x) => x.id === target)) { alert('Ungültige Person'); return; }
+                  if (confirm(`Konten von ${p.name} an ${persons.find((x) => x.id === target)!.name} übertragen und Person löschen?`)) {
+                    await deletePerson(p.id, target);
+                    setToast('Gelöscht und Konten zugewiesen');
+                  }
+                }}>{de.common.delete}</button>
+              </div>
+            </div>
           ))}
         </div>
         <div className="flex gap-2">
@@ -66,27 +90,33 @@ export function Settings() {
       </section>
 
       <section className="card p-4">
-        <h3 className="font-medium mb-3">{de.settings.categories}</h3>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {categories.map((c) => (
-            <span key={c.id} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
-              style={{ background: 'var(--surface-2)', color: c.kind === 'income' ? 'var(--income)' : 'var(--text)' }}>
-              {c.name}
-              <button className="cursor-pointer" style={{ color: 'var(--text-dim)' }}
-                title={de.common.delete} onClick={() => deleteCategory(c.id)}>✕</button>
-            </span>
+        <h3 className="font-medium mb-3">{de.settings.accounts}</h3>
+        <div className="flex flex-col gap-2 mb-3">
+          {accounts.map((a) => (
+            <div key={a.id} className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">{a.name}</div>
+                <div className="text-xs" style={{ color: 'var(--text-dim)' }}>{de.settings.accountOwner}: {persons.find((p) => p.id === a.personId)?.name ?? '—'}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button className="btn" onClick={async () => {
+                  const newName = window.prompt('Neuer Kontoname', a.name);
+                  if (newName) { await renameAccount(a.id, newName); setToast('Gespeichert'); }
+                }}>{de.settings.renameAccount}</button>
+                <select className="input" defaultValue={a.personId} onChange={async (e) => { await reassignAccountOwner(a.id, e.target.value); setToast('Gespeichert'); }}>
+                  {persons.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <button className="btn" onClick={async () => {
+                  try {
+                    if (confirm(`Konto ${a.name} löschen? Diese Aktion ist nur möglich wenn keine Transaktionen vorhanden sind.`)) {
+                      await deleteAccount(a.id);
+                      setToast('Konto gelöscht');
+                    }
+                  } catch (e: any) { alert(e?.message ?? 'Fehler'); }
+                }}>{de.common.delete}</button>
+              </div>
+            </div>
           ))}
-        </div>
-        <div className="flex gap-2">
-          <input className="input max-w-56" placeholder={de.settings.catName} value={catName}
-            onChange={(e) => setCatName(e.target.value)} />
-          <select className="input max-w-36" value={catKind} onChange={(e) => setCatKind(e.target.value as CategoryKind)}>
-            <option value="expense">{de.settings.catKindExpense}</option>
-            <option value="income">{de.settings.catKindIncome}</option>
-          </select>
-          <button className="btn" onClick={async () => { if (catName.trim()) { await addCategory(catName.trim(), catKind); setCatName(''); } }}>
-            {de.settings.addCategory}
-          </button>
         </div>
       </section>
 

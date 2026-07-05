@@ -97,6 +97,22 @@ export async function createPerson(name: string): Promise<Person> {
   return person;
 }
 
+export async function renamePerson(id: string, name: string): Promise<void> {
+  await db.persons.update(id, { name });
+}
+
+/** Delete a person. If reassignTo is provided, move their accounts to that person. If accounts exist and no reassignTo provided, throw. Transactions are never deleted. */
+export async function deletePerson(id: string, reassignTo?: string): Promise<void> {
+  return db.transaction('rw', db.persons, db.accounts, async () => {
+    const accounts = await db.accounts.where('personId').equals(id).toArray();
+    if (accounts.length > 0) {
+      if (!reassignTo) throw new Error('Person has accounts — provide a target person to reassign them to.');
+      for (const a of accounts) await db.accounts.update(a.id, { personId: reassignTo });
+    }
+    await db.persons.delete(id);
+  });
+}
+
 export interface CreateAccountOpts { personId?: string; isDemo?: boolean; }
 
 export async function createAccount(
@@ -115,6 +131,21 @@ export async function createAccount(
 
 export async function updateAccountBalance(id: string, balanceCents: number, balanceDate: string): Promise<void> {
   await db.accounts.update(id, { balanceCents, balanceDate });
+}
+
+export async function renameAccount(id: string, name: string): Promise<void> {
+  await db.accounts.update(id, { name });
+}
+
+export async function reassignAccountOwner(accountId: string, personId: string): Promise<void> {
+  await db.accounts.update(accountId, { personId });
+}
+
+/** Delete an account only if it has no transactions. Transactions must be reassigned before deletion. */
+export async function deleteAccount(id: string): Promise<void> {
+  const txCount = await db.transactions.where('accountId').equals(id).count();
+  if (txCount > 0) throw new Error('Cannot delete account with transactions. Reassign or remove transactions first.');
+  await db.accounts.delete(id);
 }
 
 // ---------- import pipeline ----------

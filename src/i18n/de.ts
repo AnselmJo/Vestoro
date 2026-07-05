@@ -156,6 +156,12 @@ export const de = {
     title: 'Einstellungen',
     persons: 'Personen',
     addPerson: 'Person hinzufügen',
+    rename: 'Umbenennen',
+    reassignAccounts: 'Konten neu zuweisen',
+    deletePersonConfirm: 'Person löschen',
+    accountOwner: 'Kontoinhaber',
+    renameAccount: 'Konto umbenennen',
+    deleteAccountConfirm: 'Konto löschen',
     categories: 'Kategorien',
     addCategory: 'Kategorie hinzufügen',
     catName: 'Name',
@@ -180,7 +186,9 @@ export const de = {
     deleteAll: 'Alle Daten löschen',
     deleteConfirm: 'Zum Bestätigen "LÖSCHEN" eintippen:',
     deleted: 'Alle Daten gelöscht.',
+    accounts: 'Konten',
   },
+
   common: {
     save: 'Speichern', cancel: 'Abbrechen', delete: 'Löschen', close: 'Schließen',
     searchPlaceholder: 'Suchen … (⌘K)',
