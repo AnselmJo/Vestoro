@@ -8,6 +8,8 @@ export default function TransactionRow({
   transferPartner,
   onCategoryChange,
   compact = false,
+  colorTransfersBySign = false,
+  currentAccountId,
 }: {
   t: Transaction;
   accountName: Map<string, string>;
@@ -15,11 +17,22 @@ export default function TransactionRow({
   transferPartner: Map<string, string>;
   onCategoryChange: (tx: Transaction, categoryId: string) => Promise<void>;
   compact?: boolean;
+  colorTransfersBySign?: boolean;
+  currentAccountId?: string;
 }) {
   const signKind: 'income' | 'expense' = t.amountCents > 0 ? 'income' : 'expense';
   const filteredCats = categories.filter((c) => c.kind === signKind);
   const assignedCat = categories.find((c) => c.id === t.categoryId);
   const mismatch = assignedCat && assignedCat.kind !== signKind;
+
+  const transferColor = (() => {
+    if (!t.transferGroupId) return undefined;
+    if (colorTransfersBySign && currentAccountId) {
+      // from perspective of currentAccountId: amount negative => outflow (expense), positive => inflow (income)
+      return t.amountCents < 0 ? 'var(--expense)' : 'var(--income)';
+    }
+    return 'var(--transfer)';
+  })();
 
   return (
     <tr key={t.id} style={{ borderTop: '1px solid var(--border)', opacity: t.transferGroupId ? 0.6 : 1 }}>
@@ -29,7 +42,7 @@ export default function TransactionRow({
       {!compact && <td className="p-2 max-w-64 truncate" style={{ color: 'var(--text-dim)' }}>{t.purpose}</td>}
       <td className="p-2">
         {t.transferGroupId ? (
-          <span className="text-xs px-2 py-1 rounded whitespace-nowrap" style={{ background: 'var(--surface-2)', color: 'var(--transfer)' }}>
+          <span className="text-xs px-2 py-1 rounded whitespace-nowrap" style={{ background: 'var(--surface-2)', color: transferColor }}>
             {t.amountCents < 0 ? `→ ${transferPartner.get(t.id) ?? '?'} ` : `← ${transferPartner.get(t.id) ?? '?'} `}
           </span>
         ) : (
@@ -42,7 +55,7 @@ export default function TransactionRow({
           </div>
         )}
       </td>
-      <td className="p-2 mono text-right whitespace-nowrap" style={{ color: t.transferGroupId ? 'var(--transfer)' : t.amountCents < 0 ? 'var(--expense)' : 'var(--income)' }}>{formatCents(t.amountCents)}</td>
+      <td className="p-2 mono text-right whitespace-nowrap" style={{ color: transferColor ?? (t.amountCents < 0 ? 'var(--expense)' : 'var(--income)') }}>{formatCents(t.amountCents)}</td>
     </tr>
   );
 }

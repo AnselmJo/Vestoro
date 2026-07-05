@@ -24,6 +24,7 @@ export interface Scope {
   demoMode: boolean;
   personIds: string[];
   accountIds: string[];
+  includeTransfers: boolean;
 }
 
 interface NavItem { id: View; label: string; icon: string; soon?: boolean; }
@@ -73,6 +74,7 @@ export function App({ initialDemoMode }: { initialDemoMode: boolean }) {
   const [demoMode, setDemoModeState] = useState(initialDemoMode);
   const [personIds, setPersonIds] = useState<string[]>([]);
   const [accountIds, setAccountIds] = useState<string[]>([]);
+  const [includeTransfers, setIncludeTransfers] = useState(false);
 
   const persons = useLiveQuery(() => db.persons.toArray(), []) ?? [];
   const accounts = useLiveQuery(() => db.accounts.toArray(), []) ?? [];
@@ -80,7 +82,7 @@ export function App({ initialDemoMode }: { initialDemoMode: boolean }) {
     (a) => (a.isDemo ?? false) === demoMode && (personIds.length === 0 || personIds.includes(a.personId)),
   );
 
-  const scope: Scope = { demoMode, personIds, accountIds };
+  const scope: Scope = { demoMode, personIds, accountIds, includeTransfers };
 
   function setDemoMode(v: boolean) {
     setDemoModeState(v);
@@ -186,7 +188,7 @@ export function App({ initialDemoMode }: { initialDemoMode: boolean }) {
 
         <main className="flex-1 overflow-auto p-5">
           <UncategorizedBanner scope={scope} onOpenTransactions={() => setView('transactions')} />
-          {view === 'dashboard' && <Dashboard scope={scope} onNavigate={setView} />}
+          {view === 'dashboard' && <Dashboard scope={scope} onNavigate={setView} setIncludeTransfers={setIncludeTransfers} />}
           {view === 'transactions' && <Transactions scope={scope} search={search} onSearch={setSearch} />}
           {view === 'rules' && <RulesManagerPage />}
           {view === 'accounts' && <Accounts scope={scope} />}

@@ -50,7 +50,7 @@ export interface SankeyData {
  * Netting also matches how the KPI cards already work (income vs. expense are
  * period totals, not raw transaction signs) and never double-counts.
  */
-export function sankeyData(txs: Transaction[], categories: Category[]): SankeyData {
+export function sankeyData(txs: Transaction[], categories: Category[], includeTransfers = false, accountNames?: Map<string,string>): SankeyData {
   const catById = new Map(categories.map((c) => [c.id, c]));
   const netByName = new Map<string, number>(); // positive = net income, negative = net expense
 
@@ -74,6 +74,17 @@ export function sankeyData(txs: Transaction[], categories: Category[]): SankeyDa
         ? { source: name, target: hub, value: round2(cents / 100) }
         : { source: hub, target: name, value: round2(-cents / 100) },
     );
+  }
+
+  // include transfers as edges from hub -> account nodes when requested
+  if (includeTransfers) {
+    const flows = transferFlows(txs);
+    for (const f of flows) {
+      const accName = accountNames?.get(f.toAccountId) ?? f.toAccountId;
+      // avoid duplicating node names that collide with category names
+      if (!nodes.find((n) => n.name === accName)) nodes.push({ name: accName, itemStyle: { color: '#9aa7b0' } });
+      links.push({ source: hub, target: accName, value: round2(f.cents / 100) });
+    }
   }
 
   const stats = periodStats(txs);

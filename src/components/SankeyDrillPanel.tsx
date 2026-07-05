@@ -8,6 +8,8 @@ export function SankeyDrillPanel({
   transferPartner,
   onCategoryChange,
   onClose,
+  colorTransfersBySign = false,
+  currentAccountId,
 }: {
   txs: Transaction[];
   categories: Category[];
@@ -15,6 +17,8 @@ export function SankeyDrillPanel({
   transferPartner: Map<string, string>;
   onCategoryChange: (tx: Transaction, categoryId: string) => Promise<void>;
   onClose: () => void;
+  colorTransfersBySign?: boolean;
+  currentAccountId?: string;
 }) {
   return (
     <div className="card p-3" style={{ maxHeight: '60vh', overflow: 'auto' }}>
@@ -34,7 +38,7 @@ export function SankeyDrillPanel({
         </thead>
         <tbody>
           {txs.map((t) => (
-            <TransactionRow key={t.id} t={t} accountName={accountName} categories={categories} transferPartner={transferPartner} onCategoryChange={onCategoryChange} compact />
+            <TransactionRow key={t.id} t={t} accountName={accountName} categories={categories} transferPartner={transferPartner} onCategoryChange={onCategoryChange} compact colorTransfersBySign={colorTransfersBySign} currentAccountId={currentAccountId} />
           ))}
         </tbody>
       </table>

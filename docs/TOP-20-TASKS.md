@@ -1,30 +1,4 @@
 
-## 2. Click interaction in Sankey → filtered transaction table
-
-**Goal:** Clicking a category node in the dashboard Sankey immediately displays
-the associated transactions alongside it; allow direct recategorization from there.
-
-**Files:** `src/views/Dashboard.tsx`, new component
-`src/components/SankeyDrillPanel.tsx`.
-
-**Behavior:**
-- Register ECharts event `chart.on('click', ...)` on Sankey nodes
-(add an optional `onNodeClick?: (name: string) => void` prop to
-`components/ui.tsx::Chart`)
-- Clicking a node name (category name or "Uncategorized") sets the local
-`selectedCategory` state
-- Layout switches to two columns: Sankey on the left (narrower), compact
-transaction list on the right (extract reusable sub-component from
-`Transactions.tsx`: `TransactionRow.tsx`), filtered by
-`categoryId === selectedCategory` (or `undefined` for "Uncategorized")
-within the currently selected time range
-- Category dropdown in each row remains editable (direct recategorization
-without context switching)
-- Close button resets layout to full width
-
-**Tests:** Component test not strictly necessary (ECharts events are hard to test) —
-but extract `TransactionRow.tsx` as a standalone component and reuse it
-in `Transactions.tsx` (avoid code duplication).
 
 ---
 

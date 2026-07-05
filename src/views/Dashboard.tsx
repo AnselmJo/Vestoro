@@ -12,7 +12,7 @@ import type { Scope, View } from '../app/App';
 
 type PeriodMode = 'month' | 'year';
 
-export function Dashboard({ scope, onNavigate }: { scope: Scope; onNavigate: (v: View) => void }) {
+export function Dashboard({ scope, onNavigate, setIncludeTransfers }: { scope: Scope; onNavigate: (v: View) => void; setIncludeTransfers?: (v: boolean) => void }) {
   const [mode, setMode] = useState<PeriodMode>('month');
   const [monthKey, setMonthKey] = useState(currentMonthKey());
   const [importOpen, setImportOpen] = useState(false);
@@ -73,7 +73,7 @@ export function Dashboard({ scope, onNavigate }: { scope: Scope; onNavigate: (v:
     );
   }
 
-  const sankey = sankeyData(periodTxs, categories);
+  const sankey = sankeyData(periodTxs, categories, scope.includeTransfers, accountName);
   const cats = categoryBars(periodTxs, categories).filter((c) => c.kind !== 'income');
   const catTotal = cats.reduce((a, c) => a + c.valueCents, 0);
   const yearOfKey = Number(monthKey.slice(0, 4));
@@ -139,20 +139,24 @@ export function Dashboard({ scope, onNavigate }: { scope: Scope; onNavigate: (v:
 
       <div className="card p-4">
         <div className="flex items-center justify-between mb-2">
-          <div>
-            <h3 className="font-medium">{de.dashboard.sankeyTitle} · {periodLabel}</h3>
-            <div className="text-xs" style={{ color: 'var(--text-dim)' }}>
-              {(() => {
-                const audit = auditCoverage(periodTxs, periodKey);
-                return `${formatCents(audit.categorizedCents)} of ${formatCents(audit.totalCents)} categorized`;
-              })()}
+         <div>
+           <h3 className="font-medium">{de.dashboard.sankeyTitle} · {periodLabel}</h3>
+           <div className="text-xs" style={{ color: 'var(--text-dim)' }}>
+             {(() => {
+               const audit = auditCoverage(periodTxs, periodKey);
+               return `${formatCents(audit.categorizedCents)} of ${formatCents(audit.totalCents)} categorized`;
+             })()}
+           </div>
+         </div>
+         <div className="flex items-center gap-3">
+           <label className="text-xs flex items-center gap-2" style={{ color: 'var(--text-dim)' }}>
+             <input type="checkbox" checked={scope.includeTransfers} onChange={(e) => setIncludeTransfers?.(e.target.checked)} />
+             Include transfers
+           </label>
+           {selectedCategory && <button className="btn" onClick={() => setSelectedCategory(null)}>Zurück</button>}
+           <button className="btn text-xs" onClick={() => setFullscreenSankey(true)}>⛶ {de.dashboard.fullscreen}</button>
+         </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {selectedCategory && <button className="btn" onClick={() => setSelectedCategory(null)}>Zurück</button>}
-            <button className="btn text-xs" onClick={() => setFullscreenSankey(true)}>⛶ {de.dashboard.fullscreen}</button>
-          </div>
-        </div>
         {sankey.links.length > 0
           ? (
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
@@ -171,6 +175,8 @@ export function Dashboard({ scope, onNavigate }: { scope: Scope; onNavigate: (v:
                     transferPartner={transferPartner}
                     onCategoryChange={async (tx, catId) => { await setCategory(tx.id, catId || undefined); }}
                     onClose={() => setSelectedCategory(null)}
+                    colorTransfersBySign={scope.accountIds.length === 1}
+                    currentAccountId={scope.accountIds.length === 1 ? scope.accountIds[0] : undefined}
                   />
                 </div>
               )}

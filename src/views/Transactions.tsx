@@ -137,7 +137,7 @@ export function Transactions({ scope, search, onSearch }: {
           </thead>
           <tbody>
             {filtered.slice(0, limit).map((t) => (
-              <TransactionRow key={t.id} t={t} accountName={accountName} categories={categories} transferPartner={transferPartner} onCategoryChange={onCategoryChange} />
+              <TransactionRow key={t.id} t={t} accountName={accountName} categories={categories} transferPartner={transferPartner} onCategoryChange={onCategoryChange} colorTransfersBySign={scope.accountIds.length === 1} currentAccountId={scope.accountIds.length === 1 ? scope.accountIds[0] : undefined} />
             ))}
           </tbody>
         </table>
