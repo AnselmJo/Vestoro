@@ -1,0 +1,72 @@
+@import 'tailwindcss';
+
+:root {
+  --bg: #16181d;
+  --surface: #1e2128;
+  --surface-2: #262a33;
+  --border: #32363f;
+  --text: #e8eaed;
+  --text-dim: #9aa0ab;
+  --accent: #6ea8b5;
+  --income: #7fb069;
+  --expense: #c96f5d;
+  --transfer: #8a8f99;
+  --radius: 10px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Sans Variable', system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 150ms ease-out;
+}
+.btn:hover { background: #2d323d; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #10151a; }
+.btn-primary:hover { background: #7fb6c2; }
+.btn-danger { color: var(--expense); }
+
+.input, select.input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: var(--text);
+  width: 100%;
+}
+.input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
