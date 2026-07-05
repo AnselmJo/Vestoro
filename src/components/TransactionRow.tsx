@@ -16,6 +16,11 @@ export default function TransactionRow({
   onCategoryChange: (tx: Transaction, categoryId: string) => Promise<void>;
   compact?: boolean;
 }) {
+  const signKind: 'income' | 'expense' = t.amountCents > 0 ? 'income' : 'expense';
+  const filteredCats = categories.filter((c) => c.kind === signKind);
+  const assignedCat = categories.find((c) => c.id === t.categoryId);
+  const mismatch = assignedCat && assignedCat.kind !== signKind;
+
   return (
     <tr key={t.id} style={{ borderTop: '1px solid var(--border)', opacity: t.transferGroupId ? 0.6 : 1 }}>
       <td className="p-2 mono whitespace-nowrap" style={{ fontSize: compact ? 12 : undefined }}>{formatIsoDate(t.bookingDate)}</td>
@@ -28,10 +33,13 @@ export default function TransactionRow({
             {t.amountCents < 0 ? `→ ${transferPartner.get(t.id) ?? '?'} ` : `← ${transferPartner.get(t.id) ?? '?'} `}
           </span>
         ) : (
-          <select className="input text-xs py-1" value={t.categoryId ?? ''} onChange={(e) => onCategoryChange(t, e.target.value)} style={{ minWidth: 130 }}>
-            <option value="">Ohne Kategorie</option>
-            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <select className="input text-xs py-1" value={t.categoryId ?? ''} onChange={(e) => onCategoryChange(t, e.target.value)} style={{ minWidth: 130 }}>
+              <option value="">Ohne Kategorie</option>
+              {filteredCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            {mismatch && <span title="Kategorie passt nicht zum Betrag" style={{ color: 'var(--expense)' }}>⚠</span>}
+          </div>
         )}
       </td>
       <td className="p-2 mono text-right whitespace-nowrap" style={{ color: t.transferGroupId ? 'var(--transfer)' : t.amountCents < 0 ? 'var(--expense)' : 'var(--income)' }}>{formatCents(t.amountCents)}</td>

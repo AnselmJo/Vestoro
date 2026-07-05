@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { db } from '../db/schema';
 import { de } from '../i18n/de';
 import { currentMonthKey, formatCents, monthLabel, shiftMonth } from '../lib/money';
-import { categoryBars, inPeriod, monthlyBars, periodStats, sankeyData, transferFlows } from '../lib/analytics';
+import { categoryBars, inPeriod, monthlyBars, periodStats, sankeyData, transferFlows, auditCoverage } from '../lib/analytics';
 import { Chart, Kpi, Modal, Seg } from '../components/ui';
 import { SankeyDrillPanel } from '../components/SankeyDrillPanel';
 import { setCategory } from '../db/repo';
@@ -139,7 +139,15 @@ export function Dashboard({ scope, onNavigate }: { scope: Scope; onNavigate: (v:
 
       <div className="card p-4">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="font-medium">{de.dashboard.sankeyTitle} · {periodLabel}</h3>
+          <div>
+            <h3 className="font-medium">{de.dashboard.sankeyTitle} · {periodLabel}</h3>
+            <div className="text-xs" style={{ color: 'var(--text-dim)' }}>
+              {(() => {
+                const audit = auditCoverage(periodTxs, periodKey);
+                return `${formatCents(audit.categorizedCents)} of ${formatCents(audit.totalCents)} categorized`;
+              })()}
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             {selectedCategory && <button className="btn" onClick={() => setSelectedCategory(null)}>Zurück</button>}
             <button className="btn text-xs" onClick={() => setFullscreenSankey(true)}>⛶ {de.dashboard.fullscreen}</button>

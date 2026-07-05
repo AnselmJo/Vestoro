@@ -87,6 +87,7 @@ export const de = {
     bulkDone: 'Alles kategorisiert — nichts mehr zu tun. 🎉',
     bulkApplied: (n: number) => `${n} Transaktionen kategorisiert.`,
     allPeriods: 'Gesamter Zeitraum',
+    categoryMismatch: '⚠ Kategorie passt nicht zur Transaktion',
   },
   import: {
     title: 'CSV-Import',

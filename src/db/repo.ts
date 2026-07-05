@@ -170,7 +170,20 @@ export async function importRows(
 
 // ---------- categorization ----------
 export async function setCategory(txId: string, categoryId: string | undefined): Promise<void> {
-  await db.transactions.update(txId, { categoryId });
+  // Validate kind matches transaction sign
+  await db.transaction('rw', db.transactions, db.categories, async () => {
+    const tx = await db.transactions.get(txId);
+    if (!tx) throw new Error('Transaction not found');
+    if (!categoryId) {
+      await db.transactions.update(txId, { categoryId: undefined });
+      return;
+    }
+    const cat = await db.categories.get(categoryId);
+    if (!cat) throw new Error('Category not found');
+    const signKind = tx.amountCents > 0 ? 'income' : 'expense';
+    if (cat.kind !== signKind) throw new Error(`Category kind '${cat.kind}' does not match transaction sign (${signKind})`);
+    await db.transactions.update(txId, { categoryId });
+  });
 }
 
 /** Bulk: assign one category to many transactions in one write. */

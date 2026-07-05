@@ -146,6 +146,21 @@ export function transferFlows(txs: Transaction[], periodKey?: string): TransferF
   return [...agg.values()].sort((a, b) => b.cents - a.cents);
 }
 
+export function auditCoverage(txs: Transaction[], periodKey?: string): { totalCents: number; categorizedCents: number; uncategorizedCount: number } {
+  const filtered = periodKey ? txs.filter((t) => inPeriod(t, periodKey)) : txs;
+  let total = 0;
+  let categorized = 0;
+  let uncategorizedCount = 0;
+  for (const t of filtered) {
+    if (isTransfer(t)) continue;
+    const amt = Math.abs(t.amountCents);
+    total += amt;
+    if (t.categoryId) categorized += amt;
+    else uncategorizedCount += 1;
+  }
+  return { totalCents: total, categorizedCents: categorized, uncategorizedCount };
+}
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }

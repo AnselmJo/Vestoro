@@ -68,8 +68,12 @@ export function Transactions({ scope, search, onSearch }: {
   const uncategorizedCount = scopedTxs.filter((t) => !t.categoryId && !t.transferGroupId).length;
 
   async function onCategoryChange(tx: Transaction, categoryId: string) {
-    await setCategory(tx.id, categoryId || undefined);
-    if (categoryId && tx.counterparty.trim()) setRulePrompt({ tx, categoryId });
+    try {
+      await setCategory(tx.id, categoryId || undefined);
+      if (categoryId && tx.counterparty.trim()) setRulePrompt({ tx, categoryId });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    }
   }
 
   async function createRule() {
@@ -178,8 +182,16 @@ function BulkCategorize({ txs, onClose }: { txs: Transaction[]; onClose: () => v
     return [...byCp.values()].sort((a, b) => b.txIds.length - a.txIds.length);
   }, [txs]);
 
-  async function assign(group: { counterparty: string; txIds: string[] }, categoryId: string) {
+  async function assign(group: { counterparty: string; txIds: string[]; totalCents: number }, categoryId: string) {
     if (!categoryId) return;
+    // Validate category kind client-side: choose by group's net sign
+    const signKind: 'income' | 'expense' = group.totalCents > 0 ? 'income' : 'expense';
+    const cat = (await db.categories.get(categoryId));
+    if (!cat) return;
+    if (cat.kind !== signKind) {
+      alert('Kategorie passt nicht zur Gruppe (Einnahme/Ausgabe)');
+      return;
+    }
     await bulkCategorize(group.txIds, categoryId);
     if (withRule && group.counterparty !== '—') {
       await addRuleAndApply({ field: 'counterparty', op: 'contains', value: group.counterparty, categoryId });
@@ -210,7 +222,7 @@ function BulkCategorize({ txs, onClose }: { txs: Transaction[]; onClose: () => v
             <select className="input max-w-52 text-xs py-1.5" defaultValue=""
               onChange={(e) => assign(g, e.target.value)}>
               <option value="" disabled>{de.tx.bulkApply} …</option>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {categories.filter((c) => c.kind === (g.totalCents > 0 ? 'income' : 'expense')).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
         ))}
