@@ -1,16 +1,33 @@
 import { formatCents } from '../../lib/money';
 import { categoryBars, donutDataFromCategoryBars, donutDataFromAccounts, donutDataFromPeople } from '../../lib/analytics';
 import type { Transaction, Category } from '../../db/schema';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DonutChart } from '../../components/DonutChart';
-import { Modal } from '../../components/ui';
+import { Modal, useToast } from '../../components/ui';
 import TransactionRow from '../../components/TransactionRow';
-import { setCategory } from '../../db/repo';
+import { setCategory, getSetting, setSetting } from '../../db/repo';
+import { de } from '../../i18n/de';
 
 export function CategoriesTab({ txs, categories, accounts, persons }:{ txs: Transaction[]; categories: Category[]; accounts?: any[]; persons?: any[] }) {
+  const toast = useToast();
   const [showDonut, setShowDonut] = useState(true);
   const [activeGroup, setActiveGroup] = useState('categories');
   const [openSlice, setOpenSlice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const v = await getSetting<string>('categories.view');
+      const g = await getSetting<string>('categories.group');
+      if (!mounted) return;
+      if (v) setShowDonut(v === 'donut');
+      if (g) setActiveGroup(g);
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => { void setSetting('categories.view', showDonut ? 'donut' : 'list'); }, [showDonut]);
+  useEffect(() => { void setSetting('categories.group', activeGroup); }, [activeGroup]);
 
   const bars = categoryBars(txs, categories);
   const donutCats = donutDataFromCategoryBars(txs, categories);
@@ -91,8 +108,9 @@ export function CategoriesTab({ txs, categories, accounts, persons }:{ txs: Tran
                   onCategoryChange={async (_tx, categoryId) => {
                     try {
                       await setCategory(t.id, categoryId || undefined);
+                      toast.add({ message: de.tx.bulkApplied(1), tone: 'success' });
                     } catch (e: any) {
-                      alert(e?.message ?? 'Fehler beim Setzen der Kategorie');
+                      toast.add({ message: (e?.message ?? 'Fehler beim Setzen der Kategorie'), tone: 'error' });
                     }
                   }}
                   compact

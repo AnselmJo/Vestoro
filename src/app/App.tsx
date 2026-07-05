@@ -13,6 +13,7 @@ import { TransferFlows } from '../views/TransferFlows';
 import { Settings } from '../views/Settings';
 import { Calculators } from '../views/Calculators';
 import { ComingSoon } from '../views/ComingSoon';
+import { ToastProvider } from '../components/ui';
 
 export type View =
   | 'dashboard' | 'transactions' | 'accounts' | 'flows' | 'rules'
@@ -116,8 +117,9 @@ export function App({ initialDemoMode }: { initialDemoMode: boolean }) {
   }, []);
 
   return (
-    <div className="flex h-full">
-      <aside
+    <ToastProvider>
+      <div className="flex h-full">
+        <aside
         className="flex flex-col border-r shrink-0 transition-all overflow-y-auto"
         style={{ width: collapsed ? 60 : 216, background: 'var(--surface)', borderColor: 'var(--border)' }}
       >
@@ -204,5 +206,6 @@ export function App({ initialDemoMode }: { initialDemoMode: boolean }) {
         </main>
       </div>
     </div>
+    </ToastProvider>
   );
 }

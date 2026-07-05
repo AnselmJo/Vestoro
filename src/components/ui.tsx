@@ -94,12 +94,26 @@ export function Chart({ option, height = 320, onNodeClick }: { option: any; heig
   return <div ref={ref} style={{ height }} />;
 }
 
-export function Modal({ title, onClose, children, wide }: {
-  title: string; onClose: () => void; children: ReactNode; wide?: boolean;
+export function Modal({ title, onClose, children, wide, autoFocusFirst = false }: {
+  title: string; onClose: () => void; children: ReactNode; wide?: boolean; autoFocusFirst?: boolean;
 }) {
+  // handle Escape and initial focus
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!autoFocusFirst || !ref.current) return;
+    const focusable = ref.current.querySelector<HTMLElement>('button,input,select,textarea,[tabindex]');
+    if (focusable) focusable.focus();
+  }, [autoFocusFirst]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }} onClick={onClose}>
-      <div className={`card p-5 w-full ${wide ? 'max-w-4xl' : 'max-w-2xl'} max-h-[85vh] overflow-auto`} onClick={(e) => e.stopPropagation()}>
+      <div ref={ref} className={`card p-5 w-full ${wide ? 'max-w-4xl' : 'max-w-2xl'} max-h-[85vh] overflow-auto`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-base">{title}</h2>
           <button className="btn px-2 py-1" onClick={onClose}>✕</button>
@@ -108,4 +122,37 @@ export function Modal({ title, onClose, children, wide }: {
       </div>
     </div>
   );
+}
+
+// --- Toast system ---
+import { createContext, useContext, useCallback, useState } from 'react';
+
+type Toast = { id: string; message: string; tone?: 'info'|'error'|'success'; };
+const ToastCtx = createContext<{ add: (t: Omit<Toast,'id'>) => void } | null>(null);
+
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const add = useCallback((t: Omit<Toast,'id'>) => {
+    const id = crypto.randomUUID();
+    setToasts((s) => [...s, { id, ...t }]);
+    setTimeout(() => setToasts((s) => s.filter((x) => x.id !== id)), 4000);
+  }, []);
+  return (
+    <ToastCtx.Provider value={{ add }}>
+      {children}
+      <div className="fixed right-4 bottom-4 z-50 flex flex-col gap-2">
+        {toasts.map((t) => (
+          <div key={t.id} className="px-3 py-2 rounded shadow" style={{ background: t.tone === 'error' ? '#fee2e2' : '#f1f5f9', color: '#0f1724' }}>
+            {t.message}
+          </div>
+        ))}
+      </div>
+    </ToastCtx.Provider>
+  );
+}
+
+export function useToast() {
+  const ctx = useContext(ToastCtx);
+  if (!ctx) throw new Error('useToast must be used within ToastProvider');
+  return ctx;
 }

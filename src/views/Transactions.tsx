@@ -5,7 +5,7 @@ import type { Transaction } from '../db/schema';
 import { de } from '../i18n/de';
 import { currentMonthKey, formatCents, monthLabel, shiftMonth } from '../lib/money';
 import { addRuleAndApply, bulkCategorize, setCategory } from '../db/repo';
-import { Modal } from '../components/ui';
+import { Modal, useToast } from '../components/ui';
 // RulesManager is now a separate page; navigate via global event
 import TransactionRow from '../components/TransactionRow';
 import type { Scope } from '../app/App';
@@ -67,12 +67,15 @@ export function Transactions({ scope, search, onSearch }: {
 
   const uncategorizedCount = scopedTxs.filter((t) => !t.categoryId && !t.transferGroupId).length;
 
+  const toast = useToast();
+
   async function onCategoryChange(tx: Transaction, categoryId: string) {
     try {
       await setCategory(tx.id, categoryId || undefined);
       if (categoryId && tx.counterparty.trim()) setRulePrompt({ tx, categoryId });
-    } catch (err) {
-      alert(err instanceof Error ? err.message : String(err));
+      toast.add({ message: de.tx.bulkApplied(1), tone: 'success' });
+    } catch (err: any) {
+      toast.add({ message: err instanceof Error ? err.message : String(err), tone: 'error' });
     }
   }
 
