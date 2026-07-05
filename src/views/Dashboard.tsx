@@ -17,6 +17,7 @@ export function Dashboard({ scope, onNavigate }: { scope: Scope; onNavigate: (v:
   const [monthKey, setMonthKey] = useState(currentMonthKey());
   const [importOpen, setImportOpen] = useState(false);
   const [fullscreenSankey, setFullscreenSankey] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | '__none__' | null>(null);
 
   const accounts = useLiveQuery(() => db.accounts.toArray(), []) ?? [];
   const allTxs = useLiveQuery(() => db.transactions.toArray(), []) ?? [];
@@ -73,7 +74,6 @@ export function Dashboard({ scope, onNavigate }: { scope: Scope; onNavigate: (v:
   }
 
   const sankey = sankeyData(periodTxs, categories);
-  const [selectedCategory, setSelectedCategory] = useState<string | '__none__' | null>(null);
   const cats = categoryBars(periodTxs, categories).filter((c) => c.kind !== 'income');
   const catTotal = cats.reduce((a, c) => a + c.valueCents, 0);
   const yearOfKey = Number(monthKey.slice(0, 4));
