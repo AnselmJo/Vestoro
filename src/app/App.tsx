@@ -9,12 +9,13 @@ import { Dashboard } from '../views/Dashboard';
 import { Accounts } from '../views/Accounts';
 import { Transactions } from '../views/Transactions';
 import RulesManagerPage from '../views/RulesManager';
+import { TransferFlows } from '../views/TransferFlows';
 import { Settings } from '../views/Settings';
 import { Calculators } from '../views/Calculators';
 import { ComingSoon } from '../views/ComingSoon';
 
 export type View =
-  | 'dashboard' | 'transactions' | 'accounts' | 'rules'
+  | 'dashboard' | 'transactions' | 'accounts' | 'flows' | 'rules'
   | 'calculators' | 'budgets' | 'goals'
   | 'portfolio' | 'contracts' | 'reports'
   | 'settings';
@@ -36,6 +37,7 @@ const NAV: NavGroup[] = [
     items: [
       { id: 'dashboard', label: de.nav.dashboard, icon: '◧' },
       { id: 'transactions', label: de.nav.transactions, icon: '≡' },
+      { id: 'flows', label: 'Transfer Flows', icon: '⇄' },
       { id: 'rules', label: 'Kategorien & Regeln', icon: '⚙' },
       { id: 'accounts', label: de.nav.accounts, icon: '▤' },
     ],
@@ -62,6 +64,7 @@ const TITLES: Record<View, string> = {
   dashboard: de.nav.dashboard, transactions: de.nav.transactions, accounts: de.nav.accounts,
   calculators: de.nav.calculators, budgets: de.nav.budgets, goals: de.nav.goals,
   portfolio: de.nav.portfolio, contracts: de.nav.contracts, reports: de.nav.reports,
+  flows: 'Transfer Flows',
   rules: 'Kategorien & Regeln',
   settings: de.nav.settings,
 };
@@ -190,6 +193,7 @@ export function App({ initialDemoMode }: { initialDemoMode: boolean }) {
           <UncategorizedBanner scope={scope} onOpenTransactions={() => setView('transactions')} />
           {view === 'dashboard' && <Dashboard scope={scope} onNavigate={setView} setIncludeTransfers={setIncludeTransfers} />}
           {view === 'transactions' && <Transactions scope={scope} search={search} onSearch={setSearch} />}
+          {view === 'flows' && <TransferFlows scope={scope} />}
           {view === 'rules' && <RulesManagerPage />}
           {view === 'accounts' && <Accounts scope={scope} />}
           {view === 'calculators' && <Calculators scope={scope} />}

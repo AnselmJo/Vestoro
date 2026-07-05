@@ -2,36 +2,6 @@
 
 ---
 
-## 4. Transfer View: Dynamically toggleable + directional semantics
-
-**Goal:** Users decide per view whether transfers between their own accounts
-are included in the totals. Additionally: ensure account-specific perspectives
-(from Account A's view, a transfer to B is an outflow; from B's view, it is an
-inflow) are handled correctly across all aggregations.
-
-**Files:** `src/lib/analytics.ts`, `src/views/Dashboard.tsx`,
-`src/app/App.tsx` (extend scope).
-
-**Must include:**
-1. `Scope.includeTransfers: boolean` (Default `false` for income/expense
-KPIs and Sankey, as transfers are not "real" income/expenses —
-this is existing behavior, but now exposed as a **visible toggle**
-in the dashboard rather than just implicit logic).
-2. Toggle UI: Segmented control or "Include transfers" checkbox directly
-above the Sankey chart — when active, transfers appear as distinct
-Sankey edges between the "Income" hub and a new node for each target account.
-3. **Account-specific filtering is already correct** (each transaction has its
-own sign relative to its `accountId`) — here, simply ensure that when
-filtering for a single account (`scope.accountIds`), a transfer *to* that
-account displays as an inflow (positive, green) and a transfer *from* it
-as an outflow (negative, red), rather than neutral/gray as currently
-occurs — adjustment in `Transactions.tsx`: if exactly one account is
-filtered, use sign-based color for transfers instead of `--transfer` color.
-
-**Tests:** `tests/logic.test.ts` — extend `transferFlows` to include the
-`includeTransfers` path in `sankeyData`, including a regression test to
-prevent cycles (use the existing cycle test as a template). ---
-
 ## 5. Custom Dashboard View: Transfer Flow Diagram
 
 **Goal:** A separate page visualizing only the flow of funds between one's own
