@@ -2,13 +2,12 @@ import { useMemo, useState, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
 import type { Rule, Transaction, Category } from '../db/schema';
-import { Modal } from '../components/ui';
 import { previewRule } from '../lib/rules';
-import { addRuleAndApply, reapplyRules, updateRule, deleteRule, moveRule, updateCategory, reorderRules } from '../db/repo';
+import { addRuleAndApply, reapplyRules, updateRule, deleteRule, updateCategory, reorderRules } from '../db/repo';
 
 const PALETTE = ['#EF4444','#F97316','#F59E0B','#EAB308','#84CC16','#10B981','#06B6D4','#3B82F6','#6366F1','#8B5CF6','#EC4899','#374151'];
 
-export function RulesManager({ onClose }: { onClose: () => void }) {
+export default function RulesManagerPage() {
   const rules = useLiveQuery(() => db.rules.orderBy('priority').toArray(), []) ?? [];
   const txs = useLiveQuery(() => db.transactions.orderBy('bookingDate').reverse().toArray(), []) ?? [];
   const categories = useLiveQuery(() => db.categories.toArray(), []) ?? [];
@@ -19,6 +18,8 @@ export function RulesManager({ onClose }: { onClose: () => void }) {
   const [filters, setFilters] = useState({ field: '', op: '', value: '', categoryId: '', enabled: '' });
   const [sortKey, setSortKey] = useState<'priority'|'field'|'op'|'value'|'category'|'enabled'>('priority');
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('asc');
+  // accessible focused row id for keyboard reordering
+  const [focusedRow, setFocusedRow] = useState<string | null>(null);
 
   const ruleMatches = useMemo(() => {
     const map = new Map<string, Transaction[]>();
@@ -68,15 +69,23 @@ export function RulesManager({ onClose }: { onClose: () => void }) {
     await reapplyRules(false);
   }
 
+  // keyboard move: move focused row up/down via Ctrl+ArrowUp/ArrowDown
+  async function onKeyboardMove(id: string, dir: 'up'|'down') {
+    const ids = rules.map((r) => r.id);
+    const idx = ids.indexOf(id);
+    if (idx === -1) return;
+    const to = dir === 'up' ? Math.max(0, idx - 1) : Math.min(ids.length - 1, idx + 1);
+    ids.splice(idx, 1);
+    ids.splice(to, 0, id);
+    await reorderRules(ids);
+  }
+
   async function onMarkException(rule: Rule, txId: string) {
     const exceptions = Array.isArray(rule.exceptions) ? [...rule.exceptions, txId] : [txId];
     await updateRule(rule.id, { exceptions });
     await reapplyRules(false);
   }
 
-  async function onMove(r: Rule, dir: 'up' | 'down') {
-    await moveRule(r.id, dir);
-  }
 
   async function onRuleChange(r: Rule, patch: Partial<Rule>) {
     await updateRule(r.id, patch);
@@ -132,19 +141,21 @@ export function RulesManager({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="Categories & Rules" onClose={onClose} wide>
-      <div className="flex gap-6 relative">
-        <div className="flex-1">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-medium">Regeln</h3>
-            <div className="flex items-center gap-2">
-              <button className="btn" onClick={addNewRule}>+ Regel hinzufügen</button>
-              <button className="btn" onClick={() => reapplyRules(true)}>Regeln neu anwenden (überschreiben)</button>
-            </div>
+    <div className="flex gap-6">
+      <div className="flex-1">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="font-semibold text-lg">Kategorien & Regeln</h2>
+            <div className="text-xs" style={{ color: 'var(--text-dim)' }}>Manage auto-categorization rules and categories</div>
           </div>
+          <div className="flex items-center gap-2">
+            <button className="btn" title="Add rule" onClick={addNewRule}>+</button>
+            <button className="btn" title="Refresh rules" onClick={() => reapplyRules(true)}>⟳</button>
+          </div>
+        </div>
 
-          <div className="card overflow-auto">
-            <table className="w-full text-sm">
+        <div className="card overflow-auto">
+          <table className="w-full text-sm">
               <thead>
                 <tr className="text-xs" style={{ color: 'var(--text-dim)' }}>
                   <th style={{ width: 60, textAlign: 'center', cursor: 'pointer' }} onClick={() => { setSortKey('priority'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); }}># {sortKey === 'priority' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
@@ -178,7 +189,19 @@ export function RulesManager({ onClose }: { onClose: () => void }) {
               </thead>
               <tbody>
                 {filtered.map((r) => (
-                  <tr key={r.id} draggable onDragStart={(e) => onDragStart(e, r.id)} onDragOver={onDragOver} onDrop={(e) => onDrop(e, r.id)} style={{ borderTop: '1px solid var(--border)' }}>
+                  <tr key={r.id}
+                    tabIndex={0}
+                    onFocus={() => setFocusedRow(r.id)}
+                    onKeyDown={(e) => {
+                      if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowUp') { e.preventDefault(); onKeyboardMove(r.id, 'up'); }
+                      if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowDown') { e.preventDefault(); onKeyboardMove(r.id, 'down'); }
+                      if (e.key === 'Enter') { e.preventDefault(); setPreviewId(previewId === r.id ? null : r.id); }
+                    }}
+                    draggable
+                    onDragStart={(e) => onDragStart(e, r.id)} onDragOver={onDragOver} onDrop={(e) => onDrop(e, r.id)}
+                    style={{ borderTop: '1px solid var(--border)' }}
+                    aria-selected={focusedRow === r.id}
+                  >
                     <td className="p-3 text-center">
                       <input className="input" style={{ width: 48, textAlign: 'center' }} type="number" defaultValue={r.priority} onBlur={(e) => onPriorityEdit(r, Number(e.target.value))} />
                     </td>
@@ -205,10 +228,8 @@ export function RulesManager({ onClose }: { onClose: () => void }) {
                     <td className="p-3 text-center"><input type="checkbox" checked={r.enabled ?? true} onChange={() => toggleEnabled(r)} /></td>
                     <td className="p-3">
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <button className="btn text-xs" onClick={() => onMove(r, 'up')}>↑</button>
-                        <button className="btn text-xs" onClick={() => onMove(r, 'down')}>↓</button>
-                        <button className="btn btn-danger text-xs" onClick={() => onDelete(r)}>Delete</button>
-                        <button className="btn text-xs" onClick={() => setPreviewId(previewId === r.id ? null : r.id)}>{`Captures ${ruleMatches.get(r.id)?.length ?? 0}`}</button>
+                        <button className="btn btn-ghost" aria-label="Delete rule" title="Delete rule" onClick={() => onDelete(r)}>🗑</button>
+                        <button className="btn" aria-pressed={previewId === r.id} onClick={() => setPreviewId(previewId === r.id ? null : r.id)}>{`Captures ${ruleMatches.get(r.id)?.length ?? 0}`}</button>
                       </div>
                     </td>
                   </tr>
@@ -241,30 +262,52 @@ export function RulesManager({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {previewId && (
-          <div style={{ position: 'absolute', right: 24, top: 60, width: 420, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, boxShadow: '0 6px 20px rgba(0,0,0,0.4)', zIndex: 60 }}>
-            <div style={{ padding: 8, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong>Matches</strong>
-              <button className="btn btn-ghost" onClick={() => setPreviewId(null)}>✕</button>
-            </div>
-            <div style={{ maxHeight: 260, overflow: 'auto' }}>
-              <table className="w-full text-sm">
-                <thead><tr className="text-xs" style={{ color: 'var(--text-dim)' }}><th className="p-2">Datum</th><th className="p-2">Empfänger</th><th className="p-2">Betrag</th><th className="p-2">Aktion</th></tr></thead>
-                <tbody>
-                  {(ruleMatches.get(previewId) ?? []).slice(0, 20).map((t) => (
-                    <tr key={t.id} style={{ borderTop: '1px solid var(--border)' }}>
-                      <td className="p-2 mono">{t.bookingDate}</td>
-                      <td className="p-2 truncate">{t.counterparty}</td>
-                      <td className="p-2 mono">{(t.amountCents/100).toFixed(2)}€</td>
-                      <td className="p-2"><button className="btn text-xs" onClick={() => { const r = rules.find((x) => x.id === previewId); if (r) onMarkException(r, t.id); }}>Mark as exception</button></td>
-                    </tr>
+        <div style={{ width: 360 }}>
+          <h4 className="font-medium mb-2">Kategorien</h4>
+          <div className="card overflow-auto p-2 mb-3">
+            {categories.map((c) => (
+              <div key={c.id} className="flex items-center gap-3 p-2 border-b">
+                <div style={{ width: 28, height: 20, background: c.color ?? '#ddd', borderRadius: 4 }} />
+                <div style={{ flex: 1 }}>
+                  <input className="input" value={editingCat[c.id] ?? c.name} onChange={(e) => setEditingCat((s) => ({ ...s, [c.id]: e.target.value }))}
+                    onBlur={async (e) => { if (e.target.value !== c.name) await onCatRename(c, e.target.value); }} />
+                  <div className="text-xs" style={{ color: 'var(--text-dim)' }}>{c.kind}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 4, flexDirection: 'column' }}>
+                  {PALETTE.map((col) => (
+                    <button key={col} className="p-0" title={col} style={{ width: 18, height: 18, background: col, border: col === c.color ? '2px solid var(--border)' : '1px solid rgba(0,0,0,0.06)' }}
+                      onClick={() => onCatColor(c, col)} />
                   ))}
-                </tbody>
-              </table>
-            </div>
-            <div style={{ padding: 8, borderTop: '1px solid var(--border)' }}>
-              <div className="text-xs mb-2">Legend</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <input className="input" type="color" value={c.color ?? '#000000'} onChange={(e) => onCatColor(c, e.target.value)} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {previewId ? (
+            <div className="card p-2">
+              <div className="flex items-center justify-between mb-2">
+                <strong>Matches ({ruleMatches.get(previewId)?.length ?? 0})</strong>
+                <button className="btn btn-ghost" onClick={() => setPreviewId(null)}>✕</button>
+              </div>
+              <div style={{ maxHeight: 300, overflow: 'auto' }}>
+                <table className="w-full text-sm">
+                  <thead><tr className="text-xs" style={{ color: 'var(--text-dim)' }}><th className="p-2">Datum</th><th className="p-2">Empfänger</th><th className="p-2">Betrag</th><th className="p-2">Aktion</th></tr></thead>
+                  <tbody>
+                    {(ruleMatches.get(previewId) ?? []).slice(0, 20).map((t) => (
+                      <tr key={t.id} style={{ borderTop: '1px solid var(--border)' }}>
+                        <td className="p-2 mono">{t.bookingDate}</td>
+                        <td className="p-2 truncate">{t.counterparty}</td>
+                        <td className="p-2 mono">{(t.amountCents/100).toFixed(2)}€</td>
+                        <td className="p-2"><button className="btn text-xs" onClick={() => { const r = rules.find((x) => x.id === previewId); if (r) onMarkException(r, t.id); }}>Mark as exception</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="text-xs mt-3">Legend</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
                 {categories.map((c) => (
                   <div key={c.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     <div style={{ width: 14, height: 12, background: c.color ?? '#ddd', borderRadius: 3 }} />
@@ -273,9 +316,10 @@ export function RulesManager({ onClose }: { onClose: () => void }) {
                 ))}
               </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="text-xs" style={{ color: 'var(--text-dim)' }}>Select a rule to preview matching transactions and mark exceptions.</div>
+          )}
+        </div>
       </div>
-    </Modal>
-  );
-}
+    );
+  }
