@@ -5,6 +5,8 @@ import { de } from '../i18n/de';
 import { currentMonthKey, formatCents, monthLabel, shiftMonth } from '../lib/money';
 import { categoryBars, inPeriod, monthlyBars, periodStats, sankeyData, transferFlows } from '../lib/analytics';
 import { Chart, Kpi, Modal, Seg } from '../components/ui';
+import { SankeyDrillPanel } from '../components/SankeyDrillPanel';
+import { setCategory } from '../db/repo';
 import { ImportDialog } from './ImportDialog';
 import type { Scope, View } from '../app/App';
 
@@ -30,6 +32,23 @@ export function Dashboard({ scope, onNavigate }: { scope: Scope; onNavigate: (v:
   const accountName = useMemo(() => new Map(accounts.map((a) => [a.id, a.name])), [accounts]);
 
   const txs = allTxs.filter((t) => scopedAccountIds.has(t.accountId));
+
+  // For transfers: map groupId → the two involved account names to render direction.
+  const transferPartner = useMemo(() => {
+    const byGroup = new Map<string, typeof txs>();
+    for (const t of txs) {
+      if (!t.transferGroupId) continue;
+      if (!byGroup.has(t.transferGroupId)) byGroup.set(t.transferGroupId, [] as any);
+      byGroup.get(t.transferGroupId)!.push(t);
+    }
+    const partner = new Map<string, string>();
+    for (const pair of byGroup.values()) {
+      if (pair.length !== 2) continue;
+      partner.set(pair[0].id, accountName.get(pair[1].accountId) ?? '?');
+      partner.set(pair[1].id, accountName.get(pair[0].accountId) ?? '?');
+    }
+    return partner;
+  }, [txs, accountName]);
   const periodKey = mode === 'month' ? monthKey : monthKey.slice(0, 4);
   const prevKey = mode === 'month' ? shiftMonth(monthKey, -1) : String(Number(monthKey.slice(0, 4)) - 1);
   const periodTxs = txs.filter((t) => inPeriod(t, periodKey));
@@ -54,6 +73,7 @@ export function Dashboard({ scope, onNavigate }: { scope: Scope; onNavigate: (v:
   }
 
   const sankey = sankeyData(periodTxs, categories);
+  const [selectedCategory, setSelectedCategory] = useState<string | '__none__' | null>(null);
   const cats = categoryBars(periodTxs, categories).filter((c) => c.kind !== 'income');
   const catTotal = cats.reduce((a, c) => a + c.valueCents, 0);
   const yearOfKey = Number(monthKey.slice(0, 4));
@@ -120,10 +140,34 @@ export function Dashboard({ scope, onNavigate }: { scope: Scope; onNavigate: (v:
       <div className="card p-4">
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-medium">{de.dashboard.sankeyTitle} · {periodLabel}</h3>
-          <button className="btn text-xs" onClick={() => setFullscreenSankey(true)}>⛶ {de.dashboard.fullscreen}</button>
+          <div className="flex items-center gap-2">
+            {selectedCategory && <button className="btn" onClick={() => setSelectedCategory(null)}>Zurück</button>}
+            <button className="btn text-xs" onClick={() => setFullscreenSankey(true)}>⛶ {de.dashboard.fullscreen}</button>
+          </div>
         </div>
         {sankey.links.length > 0
-          ? <Chart option={sankeyOption} height={360} />
+          ? (
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <div style={{ flex: selectedCategory ? 1 : 'auto', minWidth: 360 }}>
+                <Chart option={sankeyOption} height={360} onNodeClick={(name) => {
+                  const cat = categories.find((c) => c.name === name);
+                  setSelectedCategory(cat ? cat.id : (name === 'Uncategorized' ? '__none__' : null));
+                }} />
+              </div>
+              {selectedCategory && (
+                <div style={{ width: 480 }}>
+                  <SankeyDrillPanel
+                    txs={periodTxs.filter((t) => (selectedCategory === '__none__' ? !t.categoryId : t.categoryId === selectedCategory))}
+                    categories={categories}
+                    accountName={accountName}
+                    transferPartner={transferPartner}
+                    onCategoryChange={async (tx, catId) => { await setCategory(tx.id, catId || undefined); }}
+                    onClose={() => setSelectedCategory(null)}
+                  />
+                </div>
+              )}
+            </div>
+          )
           : <div className="py-16 text-center" style={{ color: 'var(--text-dim)' }}>{de.tx.none}</div>}
       </div>
 

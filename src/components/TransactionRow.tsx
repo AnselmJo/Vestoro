@@ -1,0 +1,40 @@
+import type { Transaction, Category } from '../db/schema';
+import { formatIsoDate, formatCents } from '../lib/money';
+
+export default function TransactionRow({
+  t,
+  accountName,
+  categories,
+  transferPartner,
+  onCategoryChange,
+  compact = false,
+}: {
+  t: Transaction;
+  accountName: Map<string, string>;
+  categories: Category[];
+  transferPartner: Map<string, string>;
+  onCategoryChange: (tx: Transaction, categoryId: string) => Promise<void>;
+  compact?: boolean;
+}) {
+  return (
+    <tr key={t.id} style={{ borderTop: '1px solid var(--border)', opacity: t.transferGroupId ? 0.6 : 1 }}>
+      <td className="p-2 mono whitespace-nowrap" style={{ fontSize: compact ? 12 : undefined }}>{formatIsoDate(t.bookingDate)}</td>
+      <td className="p-2 whitespace-nowrap" style={{ color: 'var(--text-dim)', fontSize: compact ? 12 : undefined }}>{accountName.get(t.accountId)}</td>
+      <td className="p-2 max-w-48 truncate" style={{ fontSize: compact ? 12 : undefined }}>{t.counterparty}</td>
+      {!compact && <td className="p-2 max-w-64 truncate" style={{ color: 'var(--text-dim)' }}>{t.purpose}</td>}
+      <td className="p-2">
+        {t.transferGroupId ? (
+          <span className="text-xs px-2 py-1 rounded whitespace-nowrap" style={{ background: 'var(--surface-2)', color: 'var(--transfer)' }}>
+            {t.amountCents < 0 ? `→ ${transferPartner.get(t.id) ?? '?'} ` : `← ${transferPartner.get(t.id) ?? '?'} `}
+          </span>
+        ) : (
+          <select className="input text-xs py-1" value={t.categoryId ?? ''} onChange={(e) => onCategoryChange(t, e.target.value)} style={{ minWidth: 130 }}>
+            <option value="">Ohne Kategorie</option>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
+      </td>
+      <td className="p-2 mono text-right whitespace-nowrap" style={{ color: t.transferGroupId ? 'var(--transfer)' : t.amountCents < 0 ? 'var(--expense)' : 'var(--income)' }}>{formatCents(t.amountCents)}</td>
+    </tr>
+  );
+}

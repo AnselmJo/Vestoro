@@ -3,10 +3,11 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
 import type { Transaction } from '../db/schema';
 import { de } from '../i18n/de';
-import { currentMonthKey, formatCents, formatIsoDate, monthLabel, shiftMonth } from '../lib/money';
+import { currentMonthKey, formatCents, monthLabel, shiftMonth } from '../lib/money';
 import { addRuleAndApply, bulkCategorize, setCategory } from '../db/repo';
 import { Modal } from '../components/ui';
 import { RulesManager } from './RulesManager';
+import TransactionRow from '../components/TransactionRow';
 import type { Scope } from '../app/App';
 
 const PAGE = 100;
@@ -132,34 +133,7 @@ export function Transactions({ scope, search, onSearch }: {
           </thead>
           <tbody>
             {filtered.slice(0, limit).map((t) => (
-              <tr key={t.id} style={{ borderTop: '1px solid var(--border)', opacity: t.transferGroupId ? 0.6 : 1 }}>
-                <td className="p-3 mono whitespace-nowrap">{formatIsoDate(t.bookingDate)}</td>
-                <td className="p-3 whitespace-nowrap" style={{ color: 'var(--text-dim)' }}>{accountName.get(t.accountId)}</td>
-                <td className="p-3 max-w-48 truncate">{t.counterparty}</td>
-                <td className="p-3 max-w-64 truncate hidden lg:table-cell" style={{ color: 'var(--text-dim)' }}>{t.purpose}</td>
-                <td className="p-3">
-                  {t.transferGroupId ? (
-                    <span className="text-xs px-2 py-1 rounded whitespace-nowrap"
-                      style={{ background: 'var(--surface-2)', color: 'var(--transfer)' }}>
-                      {de.tx.transfer}{' '}
-                      {t.amountCents < 0
-                        ? de.tx.transferTo(transferPartner.get(t.id) ?? '?')
-                        : de.tx.transferFrom(transferPartner.get(t.id) ?? '?')}
-                    </span>
-                  ) : (
-                    <select className="input text-xs py-1" value={t.categoryId ?? ''}
-                      onChange={(e) => onCategoryChange(t, e.target.value)}
-                      style={{ minWidth: 130, borderColor: t.categoryId ? 'var(--border)' : 'var(--expense)' }}>
-                      <option value="">{de.tx.uncategorized}</option>
-                      {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  )}
-                </td>
-                <td className="p-3 mono text-right whitespace-nowrap"
-                  style={{ color: t.transferGroupId ? 'var(--transfer)' : t.amountCents < 0 ? 'var(--expense)' : 'var(--income)' }}>
-                  {formatCents(t.amountCents)}
-                </td>
-              </tr>
+              <TransactionRow key={t.id} t={t} accountName={accountName} categories={categories} transferPartner={transferPartner} onCategoryChange={onCategoryChange} />
             ))}
           </tbody>
         </table>

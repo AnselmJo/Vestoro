@@ -1,35 +1,3 @@
-## 1. Category & Rule Management Page (Transaction Context)
-
-**Goal:** Categories and auto-categorization rules are directly accessible
-from "Transactions," viewable, and editable, featuring a live preview.
-
-**New Route/Panel:** `src/views/RulesManager.tsx`, opened via a new
-"Categories & Rules" button in `Transactions.tsx` (modal or slide-over;
-reuse the `wide` modal variant).
-
-**Must include:**
-- List of all rules, sorted by `priority`, with a drag handle for reordering
-(priority = first rule wins; see `lib/rules.ts`)
-- Per rule: field (`counterparty`/`purpose`/`counterpartyIban`), operator
-(`contains`/`equals`/`startsWith`), value, target category — all inline-editable
-- **Live match preview**: for each rule, an expandable list "Captures N
-transactions" showing the first 5 actual matching transactions
-(counterparty, amount, date) — function `lib/rules.ts::previewRule(rule,
-transactions): Transaction[]`
-- **Exceptions**: new field `Rule.exceptions?: string[]` (list of exact
-transaction IDs that this rule should NOT capture, even if they match)
-— UI: click on a match row in the preview → "Mark as exception"
-- Delete rule, disable rule (`Rule.enabled: boolean`, default `true`)
-without deleting (for "turning off for testing")
-- Separate category list: name, type (income/expense), color (color picker
-from a fixed palette of 12 colors), rename, delete with warning ("affects
-N transactions and M rules")
-
-**Schema change:** `Rule.exceptions?: string[]`, `Rule.enabled?: boolean`
-(Dexie migration v3; see pattern in `schema.ts` v2 migration). **Tests:** `tests/rules.test.ts` — `previewRule` matches correctly and respects
-`exceptions` and `enabled` settings.
-
----
 
 ## 2. Click interaction in Sankey → filtered transaction table
 

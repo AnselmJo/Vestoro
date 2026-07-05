@@ -40,7 +40,7 @@ export function Seg<T extends string>({ options, value, onChange }: {
 }
 
 /** Thin ECharts wrapper: re-renders when option changes, resizes with the window. */
-export function Chart({ option, height = 320 }: { option: echarts.EChartsCoreOption; height?: number }) {
+export function Chart({ option, height = 320, onNodeClick }: { option: echarts.EChartsCoreOption; height?: number; onNodeClick?: (name: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
 
@@ -49,7 +49,13 @@ export function Chart({ option, height = 320 }: { option: echarts.EChartsCoreOpt
     chart.current = echarts.init(ref.current);
     const onResize = () => chart.current?.resize();
     window.addEventListener('resize', onResize);
-    return () => { window.removeEventListener('resize', onResize); chart.current?.dispose(); };
+    const handler = (params: any) => {
+      // ECharts click payload contains name for nodes
+      const name = params?.name ?? params?.data?.name;
+      if (name && typeof onNodeClick === 'function') onNodeClick(name);
+    };
+    chart.current.on('click', handler);
+    return () => { window.removeEventListener('resize', onResize); chart.current?.off('click', handler); chart.current?.dispose(); };
   }, []);
 
   useEffect(() => {
