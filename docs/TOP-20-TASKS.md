@@ -28,36 +28,6 @@ in `Transactions.tsx` (avoid code duplication).
 
 ---
 
-## 3. Complete, deterministic categorization: Strict separation of income and expenses
-
-**Goal:** No "disappearing from view." Every transaction remains visible in
-KPIs, the Sankey diagram, and the category list at all times — whether
-categorized or not. Additionally: Category dropdown shows only matching categories (an income
-category cannot be assigned to an expense transaction, and vice versa).
-
-**Files:** `src/views/Transactions.tsx`, `src/views/ImportDialog.tsx` (bulk),
-`src/lib/analytics.ts` (audit), `src/db/repo.ts`.
-
-**Must include:**
-1. **Audit function** `lib/analytics.ts::auditCoverage(txs, periodKey):
-{ totalCents: number; categorizedCents: number; uncategorizedCount: number
-}` — Dashboard displays (small, unobtrusive) "€X of €Y categorized"
-as a progress indicator; no hard block.
-2. **Category dropdown filter**: In `Transactions.tsx` and the bulk dialog,
-show only categories whose `kind` matches the transaction's sign
-(`amountCents > 0` → only `kind: 'income'`, otherwise only `kind: 'expense'`). 
-For legacy corrections (incorrectly assigned category from old data):
-validate upon loading and visually flag ("⚠ Category does not match
-sign") instead of silently accepting.
-3. **Database validation**: `repo.ts::setCategory` throws/rejects if
-`category.kind` does not match the sign (guard in the write function,
-not just on the UI side).
-
-**Tests:** `tests/logic.test.ts` — Category-kind mismatch is rejected by
-`setCategory`; `auditCoverage` correctly sums up all transactions
-regardless of categorization status.
----
-
 ## 4. Transfer View: Dynamically toggleable + directional semantics
 
 **Goal:** Users decide per view whether transfers between their own accounts
