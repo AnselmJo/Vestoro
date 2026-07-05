@@ -224,11 +224,95 @@ export async function updateCategory(id: string, patch: Partial<Category>): Prom
 }
 
 export async function deleteCategory(id: string): Promise<void> {
+  // Prevent hard delete of template categories. Templates may be deactivated instead.
+  const cat = await db.categories.get(id);
+  if (!cat) return;
+  if ((cat as any).isTemplate) throw new Error('Vorlage kann nicht gelöscht werden — bitte deaktivieren.');
   await db.transaction('rw', db.categories, db.transactions, db.rules, async () => {
     await db.categories.delete(id);
     await db.transactions.where('categoryId').equals(id).modify({ categoryId: undefined });
     await db.rules.where('categoryId').equals(id).delete();
   });
+}
+
+/**
+ * Dry-run: compare desired template taxonomy against existing categories and return a diff-report
+ */
+export async function previewSeedCategoryTemplate(): Promise<{
+  toCreate: Array<{ name: string; parent?: string; kind: string }>;
+  matches: Array<{ name: string; existingId: string }>;
+}> {
+  const existing = await db.categories.toArray();
+  const existingByName = new Map(existing.map((c) => [c.name.toLowerCase(), c]));
+
+  const template = getTemplateList();
+  const toCreate: Array<{ name: string; parent?: string; kind: string }> = [];
+  const matches: Array<{ name: string; existingId: string }> = [];
+
+  for (const t of template) {
+    const found = existingByName.get(t.name.toLowerCase());
+    if (found) matches.push({ name: t.name, existingId: found.id });
+    else toCreate.push(t);
+  }
+  return { toCreate, matches };
+}
+
+/**
+ * Apply seed: migrate existing categories/rules first by name, then create missing template categories and mark them as templates.
+ * Returns created category ids map.
+ */
+export async function applySeedCategoryTemplate(): Promise<Record<string, string>> {
+  return db.transaction('rw', db.categories, db.transactions, db.rules, async () => {
+    const existing = await db.categories.toArray();
+    const existingByName = new Map(existing.map((c) => [c.name.toLowerCase(), c]));
+    const template = getTemplateList();
+
+    const created: Record<string, string> = {};
+    // First ensure parent categories exist or are created
+    for (const t of template) {
+      const lname = t.name.toLowerCase();
+      let cat = existingByName.get(lname);
+      if (!cat) {
+        // create
+        const id = uid();
+        const parentId = t.parent ? (created[t.parent] ?? existingByName.get(t.parent.toLowerCase())?.id) : undefined;
+        const newCat = { id, name: t.name, parentId, kind: t.kind as any, isTemplate: true, active: true } as any;
+        await db.categories.add(newCat);
+        created[t.name] = id;
+        existingByName.set(lname, newCat);
+      } else {
+        // mark as template and active
+        await db.categories.update(cat.id, { isTemplate: true, active: true });
+        created[t.name] = cat.id;
+      }
+    }
+    // Done. Rules and txs already point to existing category ids; we preserved those. Return map
+    return created;
+  });
+}
+
+/** Template definition helper (flat list with parent references) */
+function getTemplateList(): Array<{ name: string; parent?: string; kind: 'income'|'expense' }> {
+  const out: Array<{ name: string; parent?: string; kind: 'income'|'expense' }> = [];
+  // Top-level and subcategories from spec
+  const addTop = (name: string, subs: string[] | null, kind: 'income'|'expense') => {
+    out.push({ name, kind });
+    if (subs) for (const s of subs) out.push({ name: s, parent: name, kind });
+  };
+  addTop('Wohnen', ['Wohnnebenkosten','Heimwerken und Garten','Strom','Gas','Möbel und Haushaltsgeräte','Haushaltsdienstleistungen','Immobilienkredit','Miete / Wohngeld'], 'expense');
+  addTop('Kinder', ['Kinderbetreuung und -gruppen','Taschengeld / Unterhalt','Spielwaren'], 'expense');
+  addTop('Lebenshaltung', ['Drogerie','Lebensmittel und Getränke','Haushaltsbedarf','Festnetz und Internet','Handy','Haustier (-bedarf)'], 'expense');
+  addTop('Gesundheit und Wellness', ['Arztbesuch / Krankenhaus','Arznei- und Heilmittel','Wellness und Beauty'], 'expense');
+  addTop('Einnahmen', ['Staatliche Leistung und Förderung','Unterhalt','Kapitaleinkommen','Bareinzahlung','Mieteinnahmen','Rente und Pension','Gehalt'], 'income');
+  addTop('Versicherung', ['Unfallversicherung','Krankenversicherung','Wohngebäudeversicherung','Hausratversicherung','Rechtsschutzversicherung','Haftpflichtversicherung','Pflegeversicherung','Berufsunfähigkeitsversicherung','Tierversicherung','Kranken-Zusatzversicherung','Risiko-Lebensversicherung','Reiseversicherung'], 'expense');
+  addTop('Freizeit, Hobbies und Soziales', ['Kirche / Spende','Freizeitaktivitäten','Restaurant / Cafe / Bar','Sport und Fitness'], 'expense');
+  addTop('Mobilität', ['KFZ-Versicherung','KFZ-Kredit / Leasingrate / KFZ-Kauf','KFZ-Sonstige','Tanken','Taxi / ÖPNV / Car- und Bikesharing'], 'expense');
+  addTop('Sparen und Anlegen', ['Festgeld / Tagesgeld / Sparkonto','Bausparen','Kapitallebensversicherung','Private Rentenversicherung','Wertpapieranlage','Wertgegenstände und andere Anlagen'], 'expense');
+  addTop('Shopping und Unterhaltung', ['Bücher / Zeitungen / Zeitschriften','Bekleidung / Schuhe / Accessoires','Unterhaltungselektronik und Software','Büromaterial','TV / Video / Musik'], 'expense');
+  addTop('Reisen', ['Hotel und Unterkunft','Pauschalreise','Transport'], 'expense');
+  addTop('Bank und Kredit', ['Kontentransfer','Bankgebühren','Barauszahlung','Kreditkartenabrechnung','Kredittilgung und -zinsen'], 'expense');
+  addTop('Unkategorisiert', null, 'expense');
+  return out;
 }
 
 // ---------- rules helpers ----------

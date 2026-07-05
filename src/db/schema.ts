@@ -24,6 +24,8 @@ export interface Category {
   parentId?: string;
   kind: CategoryKind;
   color?: string; // optional CSS variable or hex from fixed palette
+  isTemplate?: boolean;  // seeded template categories
+  active?: boolean;      // deactivatable instead of deletable
 }
 
 export interface Transaction {
@@ -111,6 +113,26 @@ export class VestoroDb extends Dexie {
         let i = 0;
         await categories.toCollection().modify((c: Partial<Category>) => {
           if (!c.color) { c.color = palette[i % palette.length]; i++; }
+          if ((c as any).active === undefined) (c as any).active = true;
+        });
+      });
+
+    // v4: allow template categories and active flag; migration will seed templates via explicit repo function (dry-run then apply)
+    this.version(4)
+      .stores({
+        persons: 'id',
+        accounts: 'id, personId, iban',
+        categories: 'id, kind',
+        transactions: 'id, accountId, bookingDate, importHash, categoryId, transferGroupId',
+        rules: 'id, priority',
+        settings: 'key',
+      })
+      .upgrade(async (tx) => {
+        const categories = tx.table('categories');
+        // Ensure existing categories have active = true (no deletions yet)
+        await categories.toCollection().modify((c: Partial<Category>) => {
+          if ((c as any).active === undefined) (c as any).active = true;
+          if ((c as any).isTemplate === undefined) (c as any).isTemplate = false;
         });
       });
   }
