@@ -201,7 +201,7 @@ export async function addRule(rule: Omit<Rule, 'id' | 'priority'>): Promise<stri
   return id;
 }
 
-export async function bulkCategorizeByCounterparty(counterparty: string, categoryId: string, opts: { createRule?: boolean } = {}): Promise<{ updated: number; ruleId?: string }> {
+export async function bulkCategorizeByCounterparty(counterparty: string, categoryId: string, opts: { createRule?: boolean } = {}): Promise<{ updated: number; ruleId?: string; prevs: Array<{ id: string; previousCategoryId?: string }> }> {
   // match counterparty case-insensitive, trimmed, across all transactions
   const norm = (s: string) => s.trim().toLowerCase();
   const target = norm(counterparty);
@@ -215,13 +215,23 @@ export async function bulkCategorizeByCounterparty(counterparty: string, categor
       const signKind = t.amountCents > 0 ? 'income' : 'expense';
       return cat.kind === signKind;
     });
+    const prevs: Array<{ id: string; previousCategoryId?: string }> = toUpdate.map((t) => ({ id: t.id, previousCategoryId: t.categoryId }));
     for (const t of toUpdate) await db.transactions.update(t.id, { categoryId });
     let ruleId: string | undefined;
     if (opts.createRule) {
       // create a contains rule on counterparty
       ruleId = await addRule({ field: 'counterparty', op: 'equals', value: counterparty.trim(), categoryId });
     }
-    return { updated: toUpdate.length, ruleId };
+    return { updated: toUpdate.length, ruleId, prevs };
+  });
+}
+
+export async function restoreCategorization(prevs: Array<{ id: string; previousCategoryId?: string }>): Promise<void> {
+  if (!prevs || prevs.length === 0) return;
+  await db.transaction('rw', db.transactions, async () => {
+    for (const p of prevs) {
+      await db.transactions.update(p.id, { categoryId: p.previousCategoryId });
+    }
   });
 }
 

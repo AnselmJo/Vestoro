@@ -4,7 +4,7 @@ import { db } from '../db/schema';
 import type { Transaction } from '../db/schema';
 import { de } from '../i18n/de';
 import { currentMonthKey, formatCents, monthLabel, shiftMonth } from '../lib/money';
-import { addRuleAndApply, bulkCategorize, setCategory, bulkCategorizeByCounterparty } from '../db/repo';
+import { addRuleAndApply, bulkCategorize, setCategory, bulkCategorizeByCounterparty, restoreCategorization } from '../db/repo';
 import { Modal, useToast } from '../components/ui';
 // RulesManager is now a separate page; navigate via global event
 import TransactionRow from '../components/TransactionRow';
@@ -195,7 +195,7 @@ export function Transactions({ scope, search, onSearch }: {
             if (!categorizeCategory || !categorizeOpen) return;
             try {
               const res = await bulkCategorizeByCounterparty(categorizeOpen.counterparty, categorizeCategory, { createRule: categorizeCreateRule });
-              toast.add({ message: de.tx.bulkApplied(res.updated), tone: 'success' });
+              toast.add({ message: de.tx.bulkApplied(res.updated), tone: 'success', action: { label: de.tx.undo, onClick: async () => { try { await restoreCategorization(res.prevs); toast.add({ message: 'Rückgängig gemacht', tone: 'info' }); } catch (e) { /* ignore */ } } } });
             } catch (e: any) {
               toast.add({ message: e?.message ?? 'Fehler', tone: 'error' });
             }
@@ -238,7 +238,7 @@ function BulkCategorize({ txs, onClose }: { txs: Transaction[]; onClose: () => v
     }
     if (group.counterparty !== '—') {
       const res = await bulkCategorizeByCounterparty(group.counterparty, categoryId, { createRule: withRule });
-      toast.add({ message: de.tx.bulkApplied(res.updated), tone: 'success' });
+      toast.add({ message: de.tx.bulkApplied(res.updated), tone: 'success', action: { label: de.tx.undo, onClick: async () => { try { await restoreCategorization(res.prevs); toast.add({ message: 'Rückgängig gemacht', tone: 'info' }); } catch (e) { /* ignore */ } } } });
     } else {
       await bulkCategorize(group.txIds, categoryId);
       toast.add({ message: de.tx.bulkApplied(group.txIds.length), tone: 'success' });

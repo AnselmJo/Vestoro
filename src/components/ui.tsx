@@ -127,7 +127,8 @@ export function Modal({ title, onClose, children, wide, autoFocusFirst = false }
 // --- Toast system ---
 import { createContext, useContext, useCallback, useState } from 'react';
 
-type Toast = { id: string; message: string; tone?: 'info'|'error'|'success'; };
+type ToastAction = { label: string; onClick: () => void | Promise<void> };
+type Toast = { id: string; message: string; tone?: 'info'|'error'|'success'; action?: ToastAction };
 const ToastCtx = createContext<{ add: (t: Omit<Toast,'id'>) => void } | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -135,15 +136,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const add = useCallback((t: Omit<Toast,'id'>) => {
     const id = crypto.randomUUID();
     setToasts((s) => [...s, { id, ...t }]);
-    setTimeout(() => setToasts((s) => s.filter((x) => x.id !== id)), 4000);
+    setTimeout(() => setToasts((s) => s.filter((x) => x.id !== id)), 6000);
   }, []);
   return (
     <ToastCtx.Provider value={{ add }}>
       {children}
       <div className="fixed right-4 bottom-4 z-50 flex flex-col gap-2">
         {toasts.map((t) => (
-          <div key={t.id} className="px-3 py-2 rounded shadow" style={{ background: t.tone === 'error' ? '#fee2e2' : '#f1f5f9', color: '#0f1724' }}>
-            {t.message}
+          <div key={t.id} className="px-3 py-2 rounded shadow flex items-center gap-3" style={{ background: t.tone === 'error' ? '#fee2e2' : '#f1f5f9', color: '#0f1724' }}>
+            <div className="flex-1">{t.message}</div>
+            {t.action && (
+              <button className="btn btn-ghost btn-sm" onClick={async () => { try { await t.action!.onClick(); } catch (e) { /* ignore */ } setToasts((s) => s.filter((x) => x.id !== t.id)); }}>{t.action.label}</button>
+            )}
           </div>
         ))}
       </div>

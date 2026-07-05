@@ -95,6 +95,7 @@ export const de = {
     categorizeCancel: 'Abbrechen',
     categorizeSelect: 'Kategorie wählen …',
     rulesButton: 'Kategorien & Regeln',
+    undo: 'Rückgängig',
   },
   import: {
     title: 'CSV-Import',
