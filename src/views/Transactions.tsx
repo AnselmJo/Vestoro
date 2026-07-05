@@ -4,7 +4,7 @@ import { db } from '../db/schema';
 import type { Transaction } from '../db/schema';
 import { de } from '../i18n/de';
 import { currentMonthKey, formatCents, monthLabel, shiftMonth } from '../lib/money';
-import { addRuleAndApply, bulkCategorize, setCategory } from '../db/repo';
+import { addRuleAndApply, bulkCategorize, setCategory, bulkCategorizeByCounterparty } from '../db/repo';
 import { Modal, useToast } from '../components/ui';
 // RulesManager is now a separate page; navigate via global event
 import TransactionRow from '../components/TransactionRow';
@@ -168,7 +168,7 @@ export function Transactions({ scope, search, onSearch }: {
 function BulkCategorize({ txs, onClose }: { txs: Transaction[]; onClose: () => void }) {
   const categories = useLiveQuery(() => db.categories.toArray(), []) ?? [];
   const [withRule, setWithRule] = useState(true);
-  const [toast, setToast] = useState('');
+  const toast = useToast();
 
   const groups = useMemo(() => {
     const byCp = new Map<string, { counterparty: string; txIds: string[]; totalCents: number }>();
@@ -189,15 +189,16 @@ function BulkCategorize({ txs, onClose }: { txs: Transaction[]; onClose: () => v
     const cat = (await db.categories.get(categoryId));
     if (!cat) return;
     if (cat.kind !== signKind) {
-      alert('Kategorie passt nicht zur Gruppe (Einnahme/Ausgabe)');
+      toast.add({ message: 'Kategorie passt nicht zur Gruppe (Einnahme/Ausgabe)', tone: 'error' });
       return;
     }
-    await bulkCategorize(group.txIds, categoryId);
-    if (withRule && group.counterparty !== '—') {
-      await addRuleAndApply({ field: 'counterparty', op: 'contains', value: group.counterparty, categoryId });
+    if (group.counterparty !== '—') {
+      const res = await bulkCategorizeByCounterparty(group.counterparty, categoryId, { createRule: withRule });
+      toast.add({ message: de.tx.bulkApplied(res.updated), tone: 'success' });
+    } else {
+      await bulkCategorize(group.txIds, categoryId);
+      toast.add({ message: de.tx.bulkApplied(group.txIds.length), tone: 'success' });
     }
-    setToast(de.tx.bulkApplied(group.txIds.length));
-    setTimeout(() => setToast(''), 2500);
   }
 
   return (
@@ -207,7 +208,6 @@ function BulkCategorize({ txs, onClose }: { txs: Transaction[]; onClose: () => v
         <input type="checkbox" checked={withRule} onChange={(e) => setWithRule(e.target.checked)} />
         {de.tx.bulkWithRule}
       </label>
-      {toast && <div className="card p-2.5 mb-3 text-sm" style={{ borderColor: 'var(--accent)' }}>{toast}</div>}
       {groups.length === 0 && <div className="py-8 text-center" style={{ color: 'var(--text-dim)' }}>{de.tx.bulkDone}</div>}
       <div className="flex flex-col">
         {groups.map((g) => (

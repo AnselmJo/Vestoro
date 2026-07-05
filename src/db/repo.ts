@@ -193,6 +193,38 @@ export async function bulkCategorize(txIds: string[], categoryId: string): Promi
   await db.transactions.bulkPut(updated);
 }
 
+export async function addRule(rule: Omit<Rule, 'id' | 'priority'>): Promise<string> {
+  const priority = (await db.rules.count()) + 1;
+  const id = uid();
+  const full: Rule = { id, priority, ...rule };
+  await db.rules.add(full);
+  return id;
+}
+
+export async function bulkCategorizeByCounterparty(counterparty: string, categoryId: string, opts: { createRule?: boolean } = {}): Promise<{ updated: number; ruleId?: string }> {
+  // match counterparty case-insensitive, trimmed, across all transactions
+  const norm = (s: string) => s.trim().toLowerCase();
+  const target = norm(counterparty);
+  return db.transaction('rw', db.transactions, db.categories, db.rules, async () => {
+    const cat = await db.categories.get(categoryId);
+    if (!cat) throw new Error('Category not found');
+    const all = await db.transactions.toArray();
+    const matches = all.filter((t) => norm(t.counterparty) === target);
+    const toUpdate = matches.filter((t) => t.categoryId !== categoryId).filter((t) => {
+      // enforce kind match
+      const signKind = t.amountCents > 0 ? 'income' : 'expense';
+      return cat.kind === signKind;
+    });
+    for (const t of toUpdate) await db.transactions.update(t.id, { categoryId });
+    let ruleId: string | undefined;
+    if (opts.createRule) {
+      // create a contains rule on counterparty
+      ruleId = await addRule({ field: 'counterparty', op: 'equals', value: counterparty.trim(), categoryId });
+    }
+    return { updated: toUpdate.length, ruleId };
+  });
+}
+
 export async function addRuleAndApply(rule: Omit<Rule, 'id' | 'priority'>): Promise<number> {
   const priority = (await db.rules.count()) + 1;
   const full: Rule = { id: uid(), priority, ...rule };

@@ -1,15 +1,5 @@
 
 
-
-
-### CAT-02: Rule Manager — per-category rule list with bulk actions
-*(reconstructed context for referenced "Task #1"; was: BUDGET-CAT-07)*
-**Files:** likely `src/views/Categories.tsx` or new `src/components/RuleManager.tsx` — confirm against existing Task #1 if it already exists in the codebase before building this from scratch.
-
-Per category, list all rules pointing to it (condition, created date, active/inactive, matched-transaction count). Row actions: toggle active/inactive (independent of delete), delete. Bulk actions on a multi-select: activate, deactivate, delete, reassign to a different category.
-
-**Acceptance:** Deactivated rules stop firing on new imports but stay visible/reactivatable; bulk actions apply in one confirmation step.
-
 ---
 
 ### CAT-03: Bulk categorization — from a single transaction *and* from the recipient overview

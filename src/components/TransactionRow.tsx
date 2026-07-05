@@ -10,6 +10,7 @@ export default function TransactionRow({
   compact = false,
   colorTransfersBySign = false,
   currentAccountId,
+  onOpenCategorize,
 }: {
   t: Transaction;
   accountName: Map<string, string>;
@@ -19,6 +20,7 @@ export default function TransactionRow({
   compact?: boolean;
   colorTransfersBySign?: boolean;
   currentAccountId?: string;
+  onOpenCategorize?: (tx: Transaction) => void;
 }) {
   const signKind: 'income' | 'expense' = t.amountCents > 0 ? 'income' : 'expense';
   const filteredCats = categories.filter((c) => c.kind === signKind);
@@ -38,7 +40,10 @@ export default function TransactionRow({
     <tr key={t.id} style={{ borderTop: '1px solid var(--border)', opacity: t.transferGroupId ? 0.6 : 1 }}>
       <td className="p-2 mono whitespace-nowrap" style={{ fontSize: compact ? 12 : undefined }}>{formatIsoDate(t.bookingDate)}</td>
       <td className="p-2 whitespace-nowrap" style={{ color: 'var(--text-dim)', fontSize: compact ? 12 : undefined }}>{accountName.get(t.accountId)}</td>
-      <td className="p-2 max-w-48 truncate" style={{ fontSize: compact ? 12 : undefined }}>{t.counterparty}</td>
+      <td className="p-2 max-w-48 truncate" style={{ fontSize: compact ? 12 : undefined }}>
+        <span>{t.counterparty}</span>
+        <button className="btn btn-ghost ml-2" title="Categorize" onClick={() => onOpenCategorize && onOpenCategorize(t)}>⋯</button>
+      </td>
       {!compact && <td className="p-2 max-w-64 truncate" style={{ color: 'var(--text-dim)' }}>{t.purpose}</td>}
       <td className="p-2">
         {t.transferGroupId ? (
