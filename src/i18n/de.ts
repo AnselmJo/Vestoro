@@ -88,6 +88,13 @@ export const de = {
     bulkApplied: (n: number) => `${n} Transaktionen kategorisiert.`,
     allPeriods: 'Gesamter Zeitraum',
     categoryMismatch: '⚠ Kategorie passt nicht zur Transaktion',
+    categorizeTitle: 'Kategorisieren',
+    categorizeThis: 'Nur diese Transaktion kategorisieren',
+    categorizeAllFrom: (n: number) => `Alle ${n} Transaktionen des Empfängers kategorisieren`,
+    categorizeCreateRule: 'Regel für zukünftige Importe anlegen',
+    categorizeCancel: 'Abbrechen',
+    categorizeSelect: 'Kategorie wählen …',
+    rulesButton: 'Kategorien & Regeln',
   },
   import: {
     title: 'CSV-Import',

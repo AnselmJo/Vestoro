@@ -24,6 +24,9 @@ export function Transactions({ scope, search, onSearch }: {
   const [limit, setLimit] = useState(PAGE);
   const [rulePrompt, setRulePrompt] = useState<{ tx: Transaction; categoryId: string } | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [categorizeOpen, setCategorizeOpen] = useState<Transaction | null>(null);
+  const [categorizeCreateRule, setCategorizeCreateRule] = useState(true);
+  const [categorizeCategory, setCategorizeCategory] = useState<string>('');
   // rulesOpen modal removed; rules are managed on their own page
 
   const scopedAccountIds = useMemo(() => new Set(
@@ -109,7 +112,7 @@ export function Transactions({ scope, search, onSearch }: {
           <button className="btn btn-primary" onClick={() => setBulkOpen(true)}>
             {de.tx.bulk}{uncategorizedCount > 0 ? ` (${uncategorizedCount})` : ''}
           </button>
-          <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'rules' }))}>Kategorien & Regeln</button>
+          <button className="btn" onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'rules' }))}>{de.tx.rulesButton}</button>
         </div>
       </div>
 
@@ -140,7 +143,7 @@ export function Transactions({ scope, search, onSearch }: {
           </thead>
           <tbody>
             {filtered.slice(0, limit).map((t) => (
-              <TransactionRow key={t.id} t={t} accountName={accountName} categories={categories} transferPartner={transferPartner} onCategoryChange={onCategoryChange} colorTransfersBySign={scope.accountIds.length === 1} currentAccountId={scope.accountIds.length === 1 ? scope.accountIds[0] : undefined} />
+              <TransactionRow key={t.id} t={t} accountName={accountName} categories={categories} transferPartner={transferPartner} onCategoryChange={onCategoryChange} colorTransfersBySign={scope.accountIds.length === 1} currentAccountId={scope.accountIds.length === 1 ? scope.accountIds[0] : undefined} onOpenCategorize={(tx) => { setCategorizeOpen(tx); setCategorizeCategory(tx.categoryId ?? ''); }} />
             ))}
           </tbody>
         </table>
@@ -160,6 +163,47 @@ export function Transactions({ scope, search, onSearch }: {
           onClose={() => setBulkOpen(false)}
         />
       )}
+
+      {(() => {
+        const categorizeMatches = categorizeOpen ? allTxs.filter((t) => (t.counterparty || '').trim().toLowerCase() === (categorizeOpen.counterparty || '').trim().toLowerCase()).length : 0;
+        return categorizeOpen && (
+        <Modal title={de.tx.categorizeTitle} onClose={() => setCategorizeOpen(null)} wide>
+          <div className="mb-3">
+            <div className="text-sm font-medium">{categorizeOpen.counterparty || '—'}</div>
+            <div className="text-xs" style={{ color: 'var(--text-dim)' }}>{categorizeOpen.purpose}</div>
+          </div>
+          <div className="mb-3">
+            <select className="input w-full" value={categorizeCategory} onChange={(e) => setCategorizeCategory(e.target.value)}>
+              <option value="">{de.tx.categorizeSelect}</option>
+              {categories.filter((c) => c.kind === (categorizeOpen.amountCents > 0 ? 'income' : 'expense')).map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 mb-4">
+            <input type="checkbox" checked={categorizeCreateRule} onChange={(e) => setCategorizeCreateRule(e.target.checked)} />
+            {de.tx.categorizeCreateRule}
+          </label>
+          <div className="flex gap-2 justify-end">
+            <button className="btn" onClick={() => setCategorizeOpen(null)}>{de.tx.categorizeCancel}</button>
+            <button className="btn btn-outline" onClick={async () => {
+              if (!categorizeCategory || !categorizeOpen) return;
+              await onCategoryChange(categorizeOpen, categorizeCategory);
+              setCategorizeOpen(null);
+            }}>{de.tx.categorizeThis}</button>
+            <button className="btn btn-primary" onClick={async () => {
+            if (!categorizeCategory || !categorizeOpen) return;
+            try {
+              const res = await bulkCategorizeByCounterparty(categorizeOpen.counterparty, categorizeCategory, { createRule: categorizeCreateRule });
+              toast.add({ message: de.tx.bulkApplied(res.updated), tone: 'success' });
+            } catch (e: any) {
+              toast.add({ message: e?.message ?? 'Fehler', tone: 'error' });
+            }
+            setCategorizeOpen(null);
+            }}>{de.tx.categorizeAllFrom(categorizeMatches)}</button>
+          </div>
+        </Modal>
+      )})()}
     </div>
   );
 }

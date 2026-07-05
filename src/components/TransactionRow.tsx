@@ -1,5 +1,6 @@
 import type { Transaction, Category } from '../db/schema';
 import { formatIsoDate, formatCents } from '../lib/money';
+import { de } from '../i18n/de';
 
 export default function TransactionRow({
   t,
@@ -42,7 +43,7 @@ export default function TransactionRow({
       <td className="p-2 whitespace-nowrap" style={{ color: 'var(--text-dim)', fontSize: compact ? 12 : undefined }}>{accountName.get(t.accountId)}</td>
       <td className="p-2 max-w-48 truncate" style={{ fontSize: compact ? 12 : undefined }}>
         <span>{t.counterparty}</span>
-        <button className="btn btn-ghost ml-2" title="Categorize" onClick={() => onOpenCategorize && onOpenCategorize(t)}>⋯</button>
+        <button className="btn btn-ghost ml-2" title={de.tx.categorizeTitle} onClick={() => onOpenCategorize && onOpenCategorize(t)}>⋯</button>
       </td>
       {!compact && <td className="p-2 max-w-64 truncate" style={{ color: 'var(--text-dim)' }}>{t.purpose}</td>}
       <td className="p-2">
