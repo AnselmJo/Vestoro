@@ -1,32 +1,6 @@
 
 
-## P0 — Categorization foundation (everything else builds on this)
 
-### CAT-01: Seed full template category taxonomy + migrate existing data
-*(was: BUDGET-CAT-02)*
-**Files:** `src/db/repo.ts`, seed/migration script, `docs/` migration note.
-
-Seed the full default taxonomy as `isTemplate: true` categories/subcategories (list below), unable to hard-delete, only deactivatable. Critical constraint: **migrate existing category assignments and rules first** — with 938 transactions already categorized in the current account, seeding must not silently orphan or rename away existing work. Write the migration as an explicit, reviewable step (dry-run diff before applying), not a blind re-seed.
-
-```
-Wohnen: Wohnnebenkosten, Heimwerken und Garten, Strom, Gas, Möbel und Haushaltsgeräte, Haushaltsdienstleistungen, Immobilienkredit, Miete / Wohngeld
-Kinder: Kinderbetreuung und -gruppen, Taschengeld / Unterhalt, Spielwaren
-Lebenshaltung: Drogerie, Lebensmittel und Getränke, Haushaltsbedarf, Festnetz und Internet, Handy, Haustier (-bedarf)
-Gesundheit und Wellness: Arztbesuch / Krankenhaus, Arznei- und Heilmittel, Wellness und Beauty
-Einnahmen: Staatliche Leistung und Förderung, Unterhalt, Kapitaleinkommen, Bareinzahlung, Mieteinnahmen, Rente und Pension, Gehalt
-Versicherung: Unfallversicherung, Krankenversicherung, Wohngebäudeversicherung, Hausratversicherung, Rechtsschutzversicherung, Haftpflichtversicherung, Pflegeversicherung, Berufsunfähigkeitsversicherung, Tierversicherung, Kranken-Zusatzversicherung, Risiko-Lebensversicherung, Reiseversicherung
-Freizeit, Hobbies und Soziales: Kirche / Spende, Freizeitaktivitäten, Restaurant / Cafe / Bar, Sport und Fitness
-Mobilität: KFZ-Versicherung, KFZ-Kredit / Leasingrate / KFZ-Kauf, KFZ-Sonstige, Tanken, Taxi / ÖPNV / Car- und Bikesharing
-Sparen und Anlegen: Festgeld / Tagesgeld / Sparkonto, Bausparen, Kapitallebensversicherung, Private Rentenversicherung, Wertpapieranlage, Wertgegenstände und andere Anlagen
-Shopping und Unterhaltung: Bücher / Zeitungen / Zeitschriften, Bekleidung / Schuhe / Accessoires, Unterhaltungselektronik und Software, Büromaterial, TV / Video / Musik
-Reisen: Hotel und Unterkunft, Pauschalreise, Transport
-Bank und Kredit: Kontentransfer, Bankgebühren, Barauszahlung, Kreditkartenabrechnung, Kredittilgung und -zinsen
-Unkategorisiert: (fallback bucket, no subcategories)
-```
-
-**Acceptance:** All categories seeded and nested correctly; zero existing transactions lose their category; template categories show a lock/"Vorlage" indicator and can only be deactivated, not deleted.
-
----
 
 ### CAT-02: Rule Manager — per-category rule list with bulk actions
 *(reconstructed context for referenced "Task #1"; was: BUDGET-CAT-07)*

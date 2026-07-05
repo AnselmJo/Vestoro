@@ -3,7 +3,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
 import type { Rule, Transaction, Category } from '../db/schema';
 import { previewRule } from '../lib/rules';
-import { addRuleAndApply, reapplyRules, updateRule, deleteRule, updateCategory, reorderRules } from '../db/repo';
+import { addRuleAndApply, reapplyRules, updateRule, deleteRule, updateCategory, reorderRules, bulkUpdateRules, bulkDeleteRules, bulkReassignRules } from '../db/repo';
+import { useToast } from '../components/ui';
+import { useEffect } from 'react';
 
 const PALETTE = ['#EF4444','#F97316','#F59E0B','#EAB308','#84CC16','#10B981','#06B6D4','#3B82F6','#6366F1','#8B5CF6','#EC4899','#374151'];
 
@@ -20,12 +22,25 @@ export default function RulesManagerPage() {
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('asc');
   // accessible focused row id for keyboard reordering
   const [focusedRow, setFocusedRow] = useState<string | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedRuleIds, setSelectedRuleIds] = useState<Record<string, boolean>>({});
+  const toast = useToast();
 
   const ruleMatches = useMemo(() => {
     const map = new Map<string, Transaction[]>();
     for (const r of rules) map.set(r.id, previewRule(r, txs));
     return map;
   }, [rules, txs]);
+
+  const rulesByCategory = useMemo(() => {
+    const m = new Map<string, Rule[]>();
+    for (const r of rules) {
+      const k = r.categoryId ?? '__none__';
+      if (!m.has(k)) m.set(k, []);
+      m.get(k)!.push(r);
+    }
+    return m;
+  }, [rules]);
 
   const filtered = useMemo(() => {
     return rules.filter((r) => {
@@ -140,6 +155,25 @@ export default function RulesManagerPage() {
     await onReorder(ids);
   }
 
+  useEffect(() => { if (selectedCategoryId) setSelectedRuleIds({}); }, [selectedCategoryId]);
+
+  async function bulkAction(action: 'enable'|'disable'|'delete'|'reassign', reassignTo?: string) {
+    const ids = Object.keys(selectedRuleIds).filter((k) => selectedRuleIds[k]);
+    if (ids.length === 0) { toast.add({ message: 'No rules selected', tone: 'info' }); return; }
+    if (action === 'delete' && !confirm(`Delete ${ids.length} rules?`)) return;
+    try {
+      if (action === 'enable') await bulkUpdateRules(ids, { enabled: true });
+      if (action === 'disable') await bulkUpdateRules(ids, { enabled: false });
+      if (action === 'delete') await bulkDeleteRules(ids);
+      if (action === 'reassign' && reassignTo) await bulkReassignRules(ids, reassignTo);
+      await reapplyRules(false);
+      toast.add({ message: `Bulk ${action} applied (${ids.length})`, tone: 'success' });
+      setSelectedRuleIds({});
+    } catch (e: any) {
+      toast.add({ message: e?.message ?? 'Bulk action failed', tone: 'error' });
+    }
+  }
+
   return (
     <div className="flex gap-6">
       <div className="flex-1">
@@ -164,7 +198,10 @@ export default function RulesManagerPage() {
                   <th>Value {sortKey === 'value' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
                   <th style={{ width: 180, cursor: 'pointer' }} onClick={() => { setSortKey('category'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); }}>Category {sortKey === 'category' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
                   <th style={{ width: 90, cursor: 'pointer' }} onClick={() => { setSortKey('enabled'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); }}>Enabled {sortKey === 'enabled' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                  <th style={{ width: 220 }}>Actions</th>
+                  <th style={{ width: 220 }}><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input type="checkbox" onChange={(e) => {
+                      const checked = e.target.checked; const visible = filtered.map((r) => r.id); const next: Record<string, boolean> = {};
+                      for (const id of visible) next[id] = checked; setSelectedRuleIds(next);
+                    }} /> Actions</div></th>
                 </tr>
                 <tr>
                   <th />
@@ -228,6 +265,7 @@ export default function RulesManagerPage() {
                     <td className="p-3 text-center"><input type="checkbox" checked={r.enabled ?? true} onChange={() => toggleEnabled(r)} /></td>
                     <td className="p-3">
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input type="checkbox" checked={!!selectedRuleIds[r.id]} onChange={(e) => setSelectedRuleIds((s) => ({ ...s, [r.id]: e.target.checked }))} />
                         <button className="btn btn-ghost" aria-label="Delete rule" title="Delete rule" onClick={() => onDelete(r)}>🗑</button>
                         <button className="btn" aria-pressed={previewId === r.id} onClick={() => setPreviewId(previewId === r.id ? null : r.id)}>{`Captures ${ruleMatches.get(r.id)?.length ?? 0}`}</button>
                       </div>
@@ -243,7 +281,7 @@ export default function RulesManagerPage() {
           <h4 className="font-medium mb-2">Kategorien</h4>
           <div className="card overflow-auto p-2">
             {categories.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 p-2 border-b">
+              <div key={c.id} className="flex items-center gap-3 p-2 border-b" style={{ background: selectedCategoryId === c.id ? 'var(--surface-2)' : undefined, cursor: 'pointer' }} onClick={() => setSelectedCategoryId(c.id)}>
                 <div style={{ width: 28, height: 20, background: c.color ?? '#ddd', borderRadius: 4 }} />
                 <div style={{ flex: 1 }}>
                   <input className="input" value={editingCat[c.id] ?? c.name} onChange={(e) => setEditingCat((s) => ({ ...s, [c.id]: e.target.value }))}
@@ -263,25 +301,39 @@ export default function RulesManagerPage() {
         </div>
 
         <div style={{ width: 360 }}>
-          <h4 className="font-medium mb-2">Kategorien</h4>
+          <h4 className="font-medium mb-2">Category Rules</h4>
           <div className="card overflow-auto p-2 mb-3">
-            {categories.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 p-2 border-b">
-                <div style={{ width: 28, height: 20, background: c.color ?? '#ddd', borderRadius: 4 }} />
-                <div style={{ flex: 1 }}>
-                  <input className="input" value={editingCat[c.id] ?? c.name} onChange={(e) => setEditingCat((s) => ({ ...s, [c.id]: e.target.value }))}
-                    onBlur={async (e) => { if (e.target.value !== c.name) await onCatRename(c, e.target.value); }} />
-                  <div className="text-xs" style={{ color: 'var(--text-dim)' }}>{c.kind}</div>
+            {selectedCategoryId ? (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <button className="btn" onClick={() => bulkAction('enable')}>Activate</button>
+                  <button className="btn" onClick={() => bulkAction('disable')}>Deactivate</button>
+                  <button className="btn btn-danger" onClick={() => bulkAction('delete')}>Delete</button>
+                  <select className="input" onChange={(e) => bulkAction('reassign', e.target.value)} defaultValue="">
+                    <option value="">Reassign to...</option>
+                    {categories.filter((c)=>c.id !== selectedCategoryId).map((c)=> <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
                 </div>
-                <div style={{ display: 'flex', gap: 4, flexDirection: 'column' }}>
-                  {PALETTE.map((col) => (
-                    <button key={col} className="p-0" title={col} style={{ width: 18, height: 18, background: col, border: col === c.color ? '2px solid var(--border)' : '1px solid rgba(0,0,0,0.06)' }}
-                      onClick={() => onCatColor(c, col)} />
+                <div className="text-xs text-muted mb-2">Rules for: {categories.find((c) => c.id === selectedCategoryId)?.name}</div>
+                <div>
+                  {(rulesByCategory.get(selectedCategoryId) ?? []).map((r) => (
+                    <div key={r.id} className="flex items-center justify-between p-2 border-b">
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input type="checkbox" checked={!!selectedRuleIds[r.id]} onChange={(e)=> setSelectedRuleIds((s)=>({ ...s, [r.id]: e.target.checked }))} />
+                        <div>{r.field} {r.op} "{r.value}"</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <div className="text-xs">#{r.priority}</div>
+                        <button className="btn" onClick={() => toggleEnabled(r)}>{(r.enabled ?? true) ? 'Disable' : 'Enable'}</button>
+                        <button className="btn btn-ghost" onClick={() => onDelete(r)}>🗑</button>
+                      </div>
+                    </div>
                   ))}
-                  <input className="input" type="color" value={c.color ?? '#000000'} onChange={(e) => onCatColor(c, e.target.value)} />
                 </div>
               </div>
-            ))}
+            ) : (
+              <div className="text-xs" style={{ color: 'var(--text-dim)' }}>Select a category to manage its rules and perform bulk actions.</div>
+            )}
           </div>
 
           {previewId ? (

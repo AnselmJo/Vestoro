@@ -348,6 +348,24 @@ export async function reorderRules(ids: string[]): Promise<void> {
   });
 }
 
+export async function bulkUpdateRules(ids: string[], patch: Partial<Rule>): Promise<void> {
+  await db.transaction('rw', db.rules, async () => {
+    for (const id of ids) await db.rules.update(id, patch);
+  });
+}
+
+export async function bulkDeleteRules(ids: string[]): Promise<void> {
+  await db.transaction('rw', db.rules, async () => {
+    for (const id of ids) await db.rules.delete(id);
+  });
+}
+
+export async function bulkReassignRules(ids: string[], categoryId: string): Promise<void> {
+  await db.transaction('rw', db.rules, async () => {
+    for (const id of ids) await db.rules.update(id, { categoryId });
+  });
+}
+
 // ---------- demo & danger zone ----------
 export async function clearDemoData(): Promise<void> {
   const demoAccounts = (await db.accounts.toArray()).filter((a) => a.isDemo);
