@@ -11,3 +11,8 @@
   Alpha; vite-plugin-pwa goes in when offline/installed mode is prioritized.
 - 2026-07-05 — **Simple pagination instead of virtualization** in the
   transactions table (100 rows + "load more"). Revisit past ~20k transactions.
+- 2026-07-05 — **Bulk write instead of sequential updates for demo categorization,
+  plus a top-level ErrorBoundary and busy/error states on demo-load, CSV-import,
+  and backup-import.** Root cause of the reported blank-screen: failures were
+  swallowed silently (unhandled promise rejections) and one code path did ~400
+  sequential single-row IndexedDB writes instead of one bulk write. Both fixed.

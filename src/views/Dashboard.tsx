@@ -14,6 +14,21 @@ export function Dashboard({ month, onNavigate }: { month: string; onNavigate: (v
   const categories = useLiveQuery(() => db.categories.toArray(), []) ?? [];
   const [importOpen, setImportOpen] = useState(false);
   const [fullscreenSankey, setFullscreenSankey] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
+  const [demoError, setDemoError] = useState<string | null>(null);
+
+  async function onLoadDemo() {
+    setDemoBusy(true);
+    setDemoError(null);
+    try {
+      await loadDemoData();
+    } catch (err) {
+      console.error('Demo-Daten konnten nicht geladen werden:', err);
+      setDemoError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDemoBusy(false);
+    }
+  }
 
   const monthTxs = txs.filter((t) => inMonth(t, month));
   const stats = periodStats(monthTxs);
@@ -25,9 +40,16 @@ export function Dashboard({ month, onNavigate }: { month: string; onNavigate: (v
           <div className="text-2xl mb-1 font-semibold" style={{ color: 'var(--accent)' }}>{de.appName}</div>
           <div className="mb-4" style={{ color: 'var(--text-dim)' }}>{de.slogan}</div>
           <p className="mb-6 text-sm" style={{ color: 'var(--text-dim)' }}>{de.dashboard.emptyBody}</p>
+          {demoError && (
+            <p className="mb-4 text-sm" style={{ color: 'var(--expense)' }}>
+              Demo-Daten konnten nicht geladen werden: {demoError}
+            </p>
+          )}
           <div className="flex gap-3 justify-center">
             <button className="btn btn-primary" onClick={() => setImportOpen(true)}>{de.dashboard.importCsv}</button>
-            <button className="btn" onClick={() => loadDemoData()}>{de.dashboard.loadDemo}</button>
+            <button className="btn" disabled={demoBusy} onClick={onLoadDemo}>
+              {demoBusy ? 'Lädt …' : de.dashboard.loadDemo}
+            </button>
           </div>
         </div>
         {importOpen && <ImportDialog onClose={() => setImportOpen(false)} />}

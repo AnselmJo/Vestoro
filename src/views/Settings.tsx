@@ -23,9 +23,22 @@ export function Settings() {
   }
 
   async function onImportFile(f: File) {
-    const parsed = JSON.parse(await f.text());
-    await importBackup(parsed);
-    say(de.settings.backupRestored);
+    try {
+      const parsed = JSON.parse(await f.text());
+      await importBackup(parsed);
+      say(de.settings.backupRestored);
+    } catch (err) {
+      say(`Backup-Import fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  async function onLoadDemo() {
+    try {
+      await loadDemoData();
+      say('Demo-Daten geladen.');
+    } catch (err) {
+      say(`Demo-Daten konnten nicht geladen werden: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   return (
@@ -95,8 +108,8 @@ export function Settings() {
       <section className="card p-4">
         <h3 className="font-medium mb-3">{de.settings.demo}</h3>
         <div className="flex gap-2">
-          <button className="btn" onClick={() => loadDemoData()}>{de.settings.demoLoad}</button>
-          <button className="btn" onClick={() => clearDemoData()}>{de.settings.demoClear}</button>
+          <button className="btn" onClick={onLoadDemo}>{de.settings.demoLoad}</button>
+          <button className="btn" onClick={async () => { await clearDemoData(); say('Demo-Daten entfernt.'); }}>{de.settings.demoClear}</button>
         </div>
       </section>
 

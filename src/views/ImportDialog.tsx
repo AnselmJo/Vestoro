@@ -24,6 +24,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   const [newAccountType, setNewAccountType] = useState<AccountType>('checking');
   const [result, setResult] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const headersInfo = useMemo(() => {
     if (!fileText || !needsMapping) return null;
@@ -68,6 +69,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   async function runImport() {
     if (!parsed || parsed.rows.length === 0) return;
     setBusy(true);
+    setError(null);
     try {
       let targetId = accountId;
       if (targetId === '__new__' || !targetId) {
@@ -77,6 +79,8 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
       }
       const summary = await importRows(targetId, parsed.rows);
       setResult(de.import.result(summary.imported, summary.duplicates, summary.transfers));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
     }
@@ -190,6 +194,9 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
                 </button>
                 <button className="btn" onClick={onClose}>{de.import.cancel}</button>
               </div>
+              {error && (
+                <p className="text-sm" style={{ color: 'var(--expense)' }}>Import fehlgeschlagen: {error}</p>
+              )}
             </>
           )}
         </div>

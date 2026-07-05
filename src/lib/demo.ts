@@ -88,17 +88,14 @@ export async function loadDemoData(): Promise<void> {
   await importRows(giroDkb.id, dkbRows, 'demo');
   await importRows(tagesgeld.id, tgRows, 'demo');
 
-  // Assign categories recorded above (import itself only applies rules).
+  // Assign the categories recorded above in a single bulk write (fast, and
+  // avoids long-running sequential IndexedDB transactions on some browsers).
   const all = await db.transactions.toArray();
-  const updates: Array<{ key: string; id: string }> = [];
-  for (const t of all) {
-    if (t.source !== 'demo' || t.categoryId) continue;
-    updates.push({ key: txKey(t), id: t.id });
-  }
-  for (const u of updates) {
-    const categoryId = cat.get(u.key);
-    if (categoryId) await db.transactions.update(u.id, { categoryId });
-  }
+  const toUpdate = all
+    .filter((t) => t.source === 'demo' && !t.categoryId)
+    .map((t) => ({ ...t, categoryId: cat.get(txKey(t)) }))
+    .filter((t) => t.categoryId);
+  if (toUpdate.length > 0) await db.transactions.bulkPut(toUpdate);
 }
 
 const rowKey = (r: ParsedRow) => `${r.bookingDate}|${r.amountCents}|${r.counterparty}|${r.purpose}`;
