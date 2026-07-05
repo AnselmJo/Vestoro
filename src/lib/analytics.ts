@@ -37,34 +37,39 @@ export interface SankeyData {
 
 /**
  * Income categories → "Einkommen" hub → expense categories (+ "Überschuss").
- * Values in EUR (ECharts tooltips), computed from cents.
+ * Each category gets exactly ONE edge, based on its NET amount (income − expense)
+ * in the period. This is a deliberate structural guard: a Sankey graph must be
+ * a DAG, and a category that had both inflows and outflows in the same period
+ * (e.g. a category correction, or an undetected transfer) would otherwise
+ * produce edges in both directions between the same two nodes — a 2-cycle
+ * that crashes ECharts ("Sankey is a DAG, the original data has cycle!").
+ * Netting also matches how the KPI cards already work (income vs. expense are
+ * period totals, not raw transaction signs) and never double-counts.
  */
 export function sankeyData(txs: Transaction[], categories: Category[]): SankeyData {
   const catById = new Map(categories.map((c) => [c.id, c]));
-  const incomeByCat = new Map<string, number>();
-  const expenseByCat = new Map<string, number>();
+  const netByName = new Map<string, number>(); // positive = net income, negative = net expense
 
   for (const t of txs) {
     if (isTransfer(t)) continue;
     const cat = t.categoryId ? catById.get(t.categoryId) : undefined;
     const label = cat?.name ?? 'Ohne Kategorie';
-    if (t.amountCents > 0) incomeByCat.set(label, (incomeByCat.get(label) ?? 0) + t.amountCents);
-    else expenseByCat.set(label, (expenseByCat.get(label) ?? 0) + -t.amountCents);
+    netByName.set(label, (netByName.get(label) ?? 0) + t.amountCents);
   }
 
   const hub = 'Einkommen';
   const nodes: SankeyData['nodes'] = [{ name: hub, itemStyle: { color: '#6ea8b5' } }];
   const links: SankeyData['links'] = [];
-  const seen = new Set<string>([hub]);
 
-  for (const [name, cents] of incomeByCat) {
-    const label = name === hub ? `${name} ` : name; // sankey nodes must be unique
-    if (!seen.has(label)) { nodes.push({ name: label, itemStyle: { color: '#7fb069' } }); seen.add(label); }
-    links.push({ source: label, target: hub, value: round2(cents / 100) });
-  }
-  for (const [name, cents] of expenseByCat) {
-    if (!seen.has(name)) { nodes.push({ name, itemStyle: { color: '#c96f5d' } }); seen.add(name); }
-    links.push({ source: hub, target: name, value: round2(cents / 100) });
+  for (const [name, cents] of netByName) {
+    if (cents === 0) continue;
+    const isIncome = cents > 0;
+    nodes.push({ name, itemStyle: { color: isIncome ? '#7fb069' : '#c96f5d' } });
+    links.push(
+      isIncome
+        ? { source: name, target: hub, value: round2(cents / 100) }
+        : { source: hub, target: name, value: round2(-cents / 100) },
+    );
   }
 
   const stats = periodStats(txs);

@@ -18,14 +18,22 @@ const LEISURE = ['Kino Isny', 'Buchhandlung Osiander', 'Cafe Allgäu', 'Decathlo
 const MOBILITY = ['Shell Tankstelle', 'DB Vertrieb GmbH', 'Aral AG'];
 
 export async function loadDemoData(): Promise<void> {
-  const existing = await db.accounts.count();
   const rand = mulberry32(42);
 
-  const giroC24 = existing === 0
-    ? await createAccount('C24 Girokonto (Demo)', 'checking', 'DE02120300000000202051')
-    : (await db.accounts.toCollection().first())!;
-  const giroDkb = await createAccount('DKB Girokonto (Demo)', 'checking', 'DE02100500000054540402');
-  const tagesgeld = await createAccount('Tagesgeld (Demo)', 'savings', 'DE02300209000106531065');
+  // Idempotent: re-clicking "Demo-Daten laden" must reuse the same three demo
+  // accounts (matched by IBAN) instead of creating duplicates. Duplicate
+  // accounts with the same IBAN previously broke transfer detection (the
+  // IBAN→account lookup only keeps the last match), which left some transfer
+  // legs uncategorized and caused a same-category income+expense cycle that
+  // crashes the Sankey chart.
+  const ensureDemoAccount = async (name: string, type: 'checking' | 'savings', iban: string) => {
+    const existing = await db.accounts.where('iban').equals(iban).first();
+    return existing ?? createAccount(name, type, iban);
+  };
+
+  const giroC24 = await ensureDemoAccount('C24 Girokonto (Demo)', 'checking', 'DE02120300000000202051');
+  const giroDkb = await ensureDemoAccount('DKB Girokonto (Demo)', 'checking', 'DE02100500000054540402');
+  const tagesgeld = await ensureDemoAccount('Tagesgeld (Demo)', 'savings', 'DE02300209000106531065');
 
   const catId = async (name: string) =>
     (await db.categories.toArray()).find((c) => c.name === name)?.id;

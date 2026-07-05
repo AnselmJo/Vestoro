@@ -96,6 +96,22 @@ describe('analytics', () => {
     expect(s.links.find((l) => l.target === 'Überschuss')?.value).toBe(1500);
     expect(s.links.filter((l) => l.source === 'Einkommen')).toHaveLength(3); // 2 expenses + surplus
   });
+
+  it('nets a category with both inflows and outflows instead of creating a cycle', () => {
+    // Regression test: an undetected transfer or a correction can leave one
+    // category with both an income-side and an expense-side transaction in
+    // the same period. Two opposing edges between the same two nodes is a
+    // 2-cycle, which ECharts Sankey rejects outright.
+    const mixed: Transaction[] = [
+      tx({ amountCents: 20000, categoryId: 'misc' }),
+      tx({ amountCents: -5000, categoryId: 'misc' }),
+    ];
+    const cats = [{ id: 'misc', name: 'Sonstiges', kind: 'expense' as const }];
+    const s = sankeyData(mixed, cats);
+    const edgesTouchingMisc = s.links.filter((l) => l.source === 'Sonstiges' || l.target === 'Sonstiges');
+    expect(edgesTouchingMisc).toHaveLength(1);
+    expect(edgesTouchingMisc[0]).toEqual({ source: 'Sonstiges', target: 'Einkommen', value: 150 });
+  });
   it('categoryBars sorts descending and excludes transfers', () => {
     const bars = categoryBars(txs, []);
     expect(bars[0].valueCents).toBeGreaterThanOrEqual(bars[bars.length - 1].valueCents);

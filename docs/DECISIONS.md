@@ -13,6 +13,20 @@
   transactions table (100 rows + "load more"). Revisit past ~20k transactions.
 - 2026-07-05 — **Bulk write instead of sequential updates for demo categorization,
   plus a top-level ErrorBoundary and busy/error states on demo-load, CSV-import,
-  and backup-import.** Root cause of the reported blank-screen: failures were
-  swallowed silently (unhandled promise rejections) and one code path did ~400
-  sequential single-row IndexedDB writes instead of one bulk write. Both fixed.
+  and backup-import.** Root cause of an earlier reported blank-screen: failures
+  were swallowed silently (unhandled promise rejections) and one code path did
+  ~400 sequential single-row IndexedDB writes instead of one bulk write.
+- 2026-07-05 — **sankeyData nets each category to a single edge** (income −
+  expense) instead of emitting separate income-side and expense-side edges.
+  Root cause of a real crash: a category with both an inflow and an outflow in
+  the same period produced two opposing edges between the same two nodes — a
+  2-cycle, which ECharts Sankey rejects ("Sankey is a DAG, the original data
+  has cycle!"). Contributing cause fixed alongside: loadDemoData() now reuses
+  existing demo accounts by IBAN instead of creating duplicates on repeated
+  clicks, which is what produced the mixed-direction category in the first
+  place (duplicate IBANs broke transfer-pair matching). Regression tests added
+  in tests/logic.test.ts and tests/demo-regression.test.ts.
+- 2026-07-05 — **CI: actions/checkout@v5, actions/setup-node@v6** (both now
+  run natively on Node 24, removing the deprecation warning). upload-pages-
+  artifact/deploy-pages stay on their current majors (v3/v4) until GitHub
+  ships newer ones; the residual warning there is informational only.
