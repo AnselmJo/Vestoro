@@ -7,6 +7,9 @@ export default defineConfig({
   base: process.env.GITHUB_PAGES ? '/Vestoro/' : '/',
   plugins: [react(), tailwindcss()],
   build: {
+    // ECharts lazy-loads to ~1 MB minified; raise the warning limit so the
+    // build doesn't flag a chunk that is intentionally deferred.
+    chunkSizeWarningLimit: 1100,
     rollupOptions: {
       output: {
         manualChunks(id) {

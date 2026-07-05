@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
 import type { Transaction } from '../db/schema';
 import { de } from '../i18n/de';
-import { currentMonthKey, formatCents, monthLabel, shiftMonth } from '../lib/money';
+import { currentMonthKey, formatCents, formatIsoDate, monthLabel, shiftMonth } from '../lib/money';
 import { addRuleAndApply, bulkCategorize, setCategory, bulkCategorizeByCounterparty, saveUndoEntry, restoreUndoEntry, logAudit } from '../db/repo';
 import { Modal, useToast } from '../components/ui';
 // RulesManager is now a separate page; navigate via global event
@@ -11,6 +12,12 @@ import TransactionRow from '../components/TransactionRow';
 import type { Scope } from '../app/App';
 
 const PAGE = 100;
+/** Row count above which virtual scrolling activates. */
+const VIRTUAL_THRESHOLD = 500;
+/** Estimated row height in px — the virtualizer corrects via measureElement. */
+const ROW_ESTIMATE_PX = 48;
+/** Height of the scrollable table container when virtualisation is active. */
+const VIRTUAL_CONTAINER_HEIGHT = '70vh';
 
 export function Transactions({ scope, search, onSearch }: {
   scope: Scope; search: string; onSearch: (s: string) => void;
@@ -59,9 +66,12 @@ export function Transactions({ scope, search, onSearch }: {
     return partner;
   }, [allTxs, accountName]);
 
-  const scopedTxs = allTxs.filter((t) => scopedAccountIds.has(t.accountId));
+  const scopedTxs = useMemo(
+    () => allTxs.filter((t) => scopedAccountIds.has(t.accountId)),
+    [allTxs, scopedAccountIds],
+  );
 
-  const filtered = scopedTxs.filter((t) => {
+  const filtered = useMemo(() => scopedTxs.filter((t) => {
     if (!allPeriods && !t.bookingDate.startsWith(monthKey)) return false;
     if (categoryFilter === '__none__' && (t.categoryId || t.transferGroupId)) return false;
     if (categoryFilter && categoryFilter !== '__none__' && t.categoryId !== categoryFilter) return false;
@@ -73,9 +83,12 @@ export function Transactions({ scope, search, onSearch }: {
     if (directionFilter === 'in' && t.amountCents <= 0) return false;
     if (directionFilter === 'out' && t.amountCents >= 0) return false;
     return true;
-  });
+  }), [scopedTxs, allPeriods, monthKey, categoryFilter, search, directionFilter]);
 
-  const uncategorizedCount = scopedTxs.filter((t) => !t.categoryId && !t.transferGroupId).length;
+  const uncategorizedCount = useMemo(
+    () => scopedTxs.filter((t) => !t.categoryId && !t.transferGroupId).length,
+    [scopedTxs],
+  );
 
   const toast = useToast();
 
@@ -97,6 +110,8 @@ export function Transactions({ scope, search, onSearch }: {
     });
     setRulePrompt(null);
   }
+
+  const useVirtual = filtered.length > VIRTUAL_THRESHOLD;
 
   return (
     <div className="flex flex-col gap-3">
@@ -134,7 +149,7 @@ export function Transactions({ scope, search, onSearch }: {
           <span>
             {de.tx.createRule}{' '}
             <span style={{ color: 'var(--text-dim)' }}>
-              „{de.tx.counterparty} enthält ‚{rulePrompt.tx.counterparty}‘ → {categories.find((c) => c.id === rulePrompt.categoryId)?.name}“
+              „{de.tx.counterparty} enthält ‚{rulePrompt.tx.counterparty}' → {categories.find((c) => c.id === rulePrompt.categoryId)?.name}"
             </span>
           </span>
           <button className="btn btn-primary text-xs" onClick={createRule}>{de.tx.yesRule}</button>
@@ -143,29 +158,47 @@ export function Transactions({ scope, search, onSearch }: {
       )}
 
       <div className="card overflow-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-xs" style={{ color: 'var(--text-dim)' }}>
-              <th className="text-left p-3">{de.tx.date}</th>
-              <th className="text-left p-3">{de.tx.account}</th>
-              <th className="text-left p-3">{de.tx.counterparty}</th>
-              <th className="text-left p-3 hidden lg:table-cell">{de.tx.purpose}</th>
-              <th className="text-left p-3">{de.tx.category}</th>
-              <th className="text-right p-3">{de.tx.amount}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.slice(0, limit).map((t) => (
-              <TransactionRow key={t.id} t={t} accountName={accountName} categories={categories} transferPartner={transferPartner} onCategoryChange={onCategoryChange} colorTransfersBySign={scope.accountIds.length === 1} currentAccountId={scope.accountIds.length === 1 ? scope.accountIds[0] : undefined} onOpenCategorize={(tx) => { setCategorizeOpen(tx); setCategorizeCategory(tx.categoryId ?? ''); }} />
-            ))}
-          </tbody>
-        </table>
+        {useVirtual ? (
+          <VirtualTable
+            filtered={filtered}
+            accountName={accountName}
+            categories={categories}
+            transferPartner={transferPartner}
+            scope={scope}
+            onCategoryChange={onCategoryChange}
+            setCategorizeOpen={setCategorizeOpen}
+            setCategorizeCategory={setCategorizeCategory}
+          />
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs" style={{ color: 'var(--text-dim)' }}>
+                <th className="text-left p-3">{de.tx.date}</th>
+                <th className="text-left p-3">{de.tx.account}</th>
+                <th className="text-left p-3">{de.tx.counterparty}</th>
+                <th className="text-left p-3 hidden lg:table-cell">{de.tx.purpose}</th>
+                <th className="text-left p-3">{de.tx.category}</th>
+                <th className="text-right p-3">{de.tx.amount}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.slice(0, limit).map((t) => (
+                <TransactionRow key={t.id} t={t} accountName={accountName} categories={categories} transferPartner={transferPartner} onCategoryChange={onCategoryChange} colorTransfersBySign={scope.accountIds.length === 1} currentAccountId={scope.accountIds.length === 1 ? scope.accountIds[0] : undefined} onOpenCategorize={(tx) => { setCategorizeOpen(tx); setCategorizeCategory(tx.categoryId ?? ''); }} />
+              ))}
+            </tbody>
+          </table>
+        )}
         {filtered.length === 0 && <div className="p-10 text-center" style={{ color: 'var(--text-dim)' }}>{de.tx.none}</div>}
-        {filtered.length > limit && (
+        {!useVirtual && filtered.length > limit && (
           <div className="p-3 text-center">
             <button className="btn text-xs" onClick={() => setLimit(limit + PAGE)}>
               {de.tx.loadMore} ({filtered.length - limit})
             </button>
+          </div>
+        )}
+        {useVirtual && (
+          <div className="px-3 pb-2 text-xs" style={{ color: 'var(--text-dim)' }}>
+            {filtered.length} Transaktionen · virtuell gerendert
           </div>
         )}
       </div>
@@ -223,28 +256,193 @@ export function Transactions({ scope, search, onSearch }: {
         </Modal>
       )})()}
 
-    {confirmBulk && (
-      <Modal title={de.tx.confirmBulkTitle} onClose={() => setConfirmBulk(null)}>
-        <p className="mb-4">{de.tx.confirmBulkBody(confirmBulk.matches)}</p>
-        <div className="flex justify-end gap-2">
-          <button className="btn" onClick={() => setConfirmBulk(null)}>{de.common.cancel}</button>
-          <button className="btn btn-primary" onClick={async () => {
-            try {
-              const res = await bulkCategorizeByCounterparty(confirmBulk.counterparty, confirmBulk.categoryId, { createRule: confirmBulk.createRule });
-              const undoId = await saveUndoEntry(res.prevs, `Bulk categorize ${confirmBulk.counterparty}`);
-              await logAudit('bulkCategorizeByCounterparty', { counterparty: confirmBulk.counterparty, categoryId: confirmBulk.categoryId, matched: res.updated, undoId });
-              toast.add({ message: de.tx.bulkApplied(res.updated), tone: 'success', action: { label: de.tx.undo, onClick: async () => { try { await restoreUndoEntry(undoId); toast.add({ message: de.tx.undoDone, tone: 'info' }); } catch (e) { /* ignore */ } } } });
-            } catch (e: any) {
-              toast.add({ message: e?.message ?? 'Fehler', tone: 'error' });
-            }
-            setConfirmBulk(null);
-            setCategorizeOpen(null);
-          }}>{de.common.save}</button>
-        </div>
-      </Modal>
-    )}
+      {confirmBulk && (
+        <Modal title={de.tx.confirmBulkTitle} onClose={() => setConfirmBulk(null)}>
+          <p className="mb-4">{de.tx.confirmBulkBody(confirmBulk.matches)}</p>
+          <div className="flex justify-end gap-2">
+            <button className="btn" onClick={() => setConfirmBulk(null)}>{de.common.cancel}</button>
+            <button className="btn btn-primary" onClick={async () => {
+              try {
+                const res = await bulkCategorizeByCounterparty(confirmBulk.counterparty, confirmBulk.categoryId, { createRule: confirmBulk.createRule });
+                const undoId = await saveUndoEntry(res.prevs, `Bulk categorize ${confirmBulk.counterparty}`);
+                await logAudit('bulkCategorizeByCounterparty', { counterparty: confirmBulk.counterparty, categoryId: confirmBulk.categoryId, matched: res.updated, undoId });
+                toast.add({ message: de.tx.bulkApplied(res.updated), tone: 'success', action: { label: de.tx.undo, onClick: async () => { try { await restoreUndoEntry(undoId); toast.add({ message: de.tx.undoDone, tone: 'info' }); } catch (e) { /* ignore */ } } } });
+              } catch (e: any) {
+                toast.add({ message: e?.message ?? 'Fehler', tone: 'error' });
+              }
+              setConfirmBulk(null);
+              setCategorizeOpen(null);
+            }}>{de.common.save}</button>
+          </div>
+        </Modal>
+      )}
 
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Virtual table — activated when filtered.length > VIRTUAL_THRESHOLD
+// ---------------------------------------------------------------------------
+
+function VirtualTable({
+  filtered,
+  accountName,
+  categories,
+  transferPartner,
+  scope,
+  onCategoryChange,
+  setCategorizeOpen,
+  setCategorizeCategory,
+}: {
+  filtered: Transaction[];
+  accountName: Map<string, string>;
+  categories: import('../db/schema').Category[];
+  transferPartner: Map<string, string>;
+  scope: Scope;
+  onCategoryChange: (tx: Transaction, categoryId: string) => Promise<void>;
+  setCategorizeOpen: (tx: Transaction) => void;
+  setCategorizeCategory: (id: string) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_ESTIMATE_PX,
+    overscan: 10,
+  });
+
+  const items = virtualizer.getVirtualItems();
+
+  const paddingTop = items.length > 0 ? (items[0]?.start ?? 0) : 0;
+  const paddingBottom = items.length > 0
+    ? virtualizer.getTotalSize() - (items[items.length - 1]?.end ?? 0)
+    : 0;
+
+  return (
+    <div
+      ref={scrollRef}
+      style={{ height: VIRTUAL_CONTAINER_HEIGHT, overflowY: 'auto' }}
+    >
+      <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+        <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--surface)' }}>
+          <tr className="text-xs" style={{ color: 'var(--text-dim)' }}>
+            <th className="text-left p-3" style={{ width: 100 }}>{de.tx.date}</th>
+            <th className="text-left p-3" style={{ width: 120 }}>{de.tx.account}</th>
+            <th className="text-left p-3">{de.tx.counterparty}</th>
+            <th className="text-left p-3 hidden lg:table-cell">{de.tx.purpose}</th>
+            <th className="text-left p-3" style={{ width: 180 }}>{de.tx.category}</th>
+            <th className="text-right p-3" style={{ width: 110 }}>{de.tx.amount}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {/* Top spacer — keeps scroll position consistent with total virtual height */}
+          {paddingTop > 0 && (
+            <tr><td colSpan={6} style={{ height: paddingTop, padding: 0 }} /></tr>
+          )}
+          {items.map((vRow) => {
+            const t = filtered[vRow.index]!;
+            return (
+              <tr
+                key={t.id}
+                data-index={vRow.index}
+                ref={virtualizer.measureElement}
+                style={{ borderTop: '1px solid var(--border)', opacity: t.transferGroupId ? 0.6 : 1 }}
+              >
+                <VirtualRowCells
+                  t={t}
+                  accountName={accountName}
+                  categories={categories}
+                  transferPartner={transferPartner}
+                  scope={scope}
+                  onCategoryChange={onCategoryChange}
+                  setCategorizeOpen={setCategorizeOpen}
+                  setCategorizeCategory={setCategorizeCategory}
+                />
+              </tr>
+            );
+          })}
+          {/* Bottom spacer */}
+          {paddingBottom > 0 && (
+            <tr><td colSpan={6} style={{ height: paddingBottom, padding: 0 }} /></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Renders the cells for one transaction row inside the virtual <tr>. */
+function VirtualRowCells({
+  t,
+  accountName,
+  categories,
+  transferPartner,
+  scope,
+  onCategoryChange,
+  setCategorizeOpen,
+  setCategorizeCategory,
+}: {
+  t: Transaction;
+  accountName: Map<string, string>;
+  categories: import('../db/schema').Category[];
+  transferPartner: Map<string, string>;
+  scope: Scope;
+  onCategoryChange: (tx: Transaction, categoryId: string) => Promise<void>;
+  setCategorizeOpen: (tx: Transaction) => void;
+  setCategorizeCategory: (id: string) => void;
+}) {
+  const signKind: 'income' | 'expense' = t.amountCents > 0 ? 'income' : 'expense';
+  const filteredCats = categories.filter((c) => c.kind === signKind);
+  const assignedCat = categories.find((c) => c.id === t.categoryId);
+  const mismatch = assignedCat && assignedCat.kind !== signKind;
+
+  const transferColor = (() => {
+    if (!t.transferGroupId) return undefined;
+    if (scope.accountIds.length === 1) {
+      return t.amountCents < 0 ? 'var(--expense)' : 'var(--income)';
+    }
+    return 'var(--transfer)';
+  })();
+
+  return (
+    <>
+      <td className="p-2 mono whitespace-nowrap">{formatIsoDate(t.bookingDate)}</td>
+      <td className="p-2 whitespace-nowrap" style={{ color: 'var(--text-dim)' }}>{accountName.get(t.accountId)}</td>
+      <td className="p-2 max-w-48 truncate">
+        <span>{t.counterparty}</span>
+        <button
+          className="btn btn-ghost ml-2"
+          title={de.tx.categorizeTitle}
+          onClick={() => { setCategorizeOpen(t); setCategorizeCategory(t.categoryId ?? ''); }}
+        >⋯</button>
+      </td>
+      <td className="p-2 max-w-64 truncate hidden lg:table-cell" style={{ color: 'var(--text-dim)' }}>{t.purpose}</td>
+      <td className="p-2">
+        {t.transferGroupId ? (
+          <span className="text-xs px-2 py-1 rounded whitespace-nowrap" style={{ background: 'var(--surface-2)', color: transferColor }}>
+            {t.amountCents < 0 ? `→ ${transferPartner.get(t.id) ?? '?'} ` : `← ${transferPartner.get(t.id) ?? '?'} `}
+          </span>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <select
+              className="input text-xs py-1"
+              value={t.categoryId ?? ''}
+              onChange={(e) => onCategoryChange(t, e.target.value)}
+              style={{ minWidth: 130 }}
+            >
+              <option value="">Ohne Kategorie</option>
+              {filteredCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            {mismatch && <span title="Kategorie passt nicht zum Betrag" style={{ color: 'var(--expense)' }}>⚠</span>}
+          </div>
+        )}
+      </td>
+      <td className="p-2 mono text-right whitespace-nowrap" style={{ color: transferColor ?? (t.amountCents < 0 ? 'var(--expense)' : 'var(--income)') }}>
+        {formatCents(t.amountCents)}
+      </td>
+    </>
   );
 }
 

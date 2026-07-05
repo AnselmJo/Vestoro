@@ -24,8 +24,8 @@ export function Dashboard({ scope, onNavigate, setIncludeTransfers }: { scope: S
   const [importOpen, setImportOpen] = useState(false);
   const [fullscreenSankey, setFullscreenSankey] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | '__none__' | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview'|'cashflow'|'categories'|'accounts'>('overview');
-  const [sankeyUnit, setSankeyUnit] = useState<'euro'|'percent'>('euro');
+  const [activeTab, setActiveTab] = useState<'overview' | 'cashflow' | 'categories' | 'accounts'>('overview');
+  const [sankeyUnit, setSankeyUnit] = useState<'euro' | 'percent'>('euro');
 
   useEffect(() => {
     let mounted = true;
@@ -53,7 +53,10 @@ export function Dashboard({ scope, onNavigate, setIncludeTransfers }: { scope: S
   ), [accounts, scope]);
   const accountName = useMemo(() => new Map(accounts.map((a) => [a.id, a.name])), [accounts]);
 
-  const txs = allTxs.filter((t) => scopedAccountIds.has(t.accountId));
+  const txs = useMemo(
+    () => allTxs.filter((t) => scopedAccountIds.has(t.accountId)),
+    [allTxs, scopedAccountIds],
+  );
 
   const periodKey = mode === 'month' ? monthKey : monthKey.slice(0, 4);
   const yearOfKey = Number(monthKey.slice(0, 4));
@@ -61,8 +64,14 @@ export function Dashboard({ scope, onNavigate, setIncludeTransfers }: { scope: S
     ? Array.from({ length: 12 }, (_, i) => shiftMonth(monthKey, i - 11))
     : Array.from({ length: 12 }, (_, i) => `${yearOfKey}-${String(i + 1).padStart(2, '0')}`);
 
-  const periodTxs = txs.filter((t) => inPeriod(t, periodKey));
-  const sankey = sankeyData(periodTxs, categories, scope.includeTransfers, accountName);
+  const periodTxs = useMemo(
+    () => txs.filter((t) => inPeriod(t, periodKey)),
+    [txs, periodKey],
+  );
+  const sankey = useMemo(
+    () => sankeyData(periodTxs, categories, scope.includeTransfers, accountName),
+    [periodTxs, categories, scope.includeTransfers, accountName],
+  );
 
   return (
     <div className="flex flex-col gap-4">

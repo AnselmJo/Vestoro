@@ -8,7 +8,7 @@ import TransactionRow from '../../components/TransactionRow';
 import { setCategory, getSetting, setSetting } from '../../db/repo';
 import { de } from '../../i18n/de';
 
-export function CategoriesTab({ txs, categories, accounts, persons }:{ txs: Transaction[]; categories: Category[]; accounts?: any[]; persons?: any[] }) {
+export function CategoriesTab({ txs, categories, accounts, persons }: { txs: Transaction[]; categories: Category[]; accounts?: any[]; persons?: any[] }) {
   const toast = useToast();
   const [showDonut, setShowDonut] = useState(true);
   const [activeGroup, setActiveGroup] = useState('categories');
@@ -104,7 +104,7 @@ export function CategoriesTab({ txs, categories, accounts, persons }:{ txs: Tran
                 <TransactionRow
                   key={t.id}
                   t={t}
-                  accountName={new Map((accounts ?? []).map((a:any)=>[a.id,a.name]))}
+                  accountName={new Map((accounts ?? []).map((a: any) => [a.id, a.name]))}
                   categories={categories}
                   transferPartner={new Map()}
                   onCategoryChange={async (_tx, categoryId) => {

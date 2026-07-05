@@ -1,38 +1,5 @@
 
 
-
-
----
-
-### CAT-05: Category Wizard — overview, custom categories, icons, colors
-*(merges previous BUDGET-CAT-01, -03, -04, -05, -06, and GENERAL-01/03)*
-**Files:** new `src/views/CategoryWizard.tsx`, `src/components/IconPicker.tsx`, `src/components/ColorPicker.tsx`.
-
-- Overview screen: all categories/subcategories, tree or grouped list, filter `Alle Kategorien` / `Eigene Kategorien`. Replaces the standalone "Kategorien & Regeln" sidebar item — reachable from within Transaktionen instead (fold sidebar entry into this view once shipped).
-- "Neue Kategorie" (top-level): name + `IconPicker` + `ColorPicker`.
-- "Neue Unterkategorie": name + parent picker (any top-level, template or custom).
-- `IconPicker`: standardize on one icon set (Lucide, matching what's already visible in the app) and reuse it everywhere — sidebar, delete actions, category icons — instead of mixed icon sources. Searchable subset (~40–60 relevant icons).
-- `ColorPicker`: 16 presets in a 4×4 grid + full color wheel/RGB/HEX, built generic (no category-specific logic) so Portfolio/Accounts can reuse it later.
-
-**Acceptance:** Both picker components are standalone and reusable; new categories/subcategories appear immediately in pickers and respect the template/custom filter.
-
----
-
-## P1 — Everyday usability & quick wins
-
-### NAV-01: Regroup sidebar into Budget / Portfolio / Planen
-Group Dashboard, Transfer Flows, Transaktionen (incl. CAT-05's wizard), Konten under **Budget**; Portfolio, Verträge (→ SYS-01), Berichte (→ REPORT-01) under **Portfolio**; Rechner, Budgets, Ziele under **Planen**. `Einstellungen` stays separate. Purely structural — no route/logic changes beyond labels and grouping.
-
-### TX-01: Filter transactions by direction (income / expense)
-Add `Alle / Eingehend / Ausgehend` filter to Transaktionen, combinable with existing filters. Confirm how internal transfers are excluded/labeled so they aren't double-counted, consistent with Transfer Flows logic.
-
-### DASH-01: Redesign period selector (Month / Quarter / Year)
-Top-right segmented control `Monat | Quartal | Jahr` + dynamic "Aktueller Monat/Quartal/Jahr" label (shown only when the selected period is the current one). Left side: selected period text + ◀ ▶ arrows, stepping by the active granularity. All dashboard widgets react to both period and granularity.
-
-### DASH-02: €/% toggle on the Sankey diagram
-Small `€ | %` toggle in the Sankey card's top-right corner, matching the existing category-share toggle. Persist last-used mode.
-
-
 ---
 
 ## P2 — Categorization intelligence, settings, onboarding
@@ -175,11 +142,3 @@ Follow `/mnt/skills/public/pdf/SKILL.md` for the PDF generation. Period + person
 Feature-detect `showDirectoryPicker` (Chromium-only, hide silently elsewhere). On selection, store the handle and re-validate via `navigator.permissions.query` on startup. After every successful CSV import, write `vestoro-backup-latest.json` to the chosen folder in addition to (not instead of) the existing manual download. Settings shows status ("Automatisches Backup aktiv → [Pfad]" / "Nicht eingerichtet").
 
 ---
-
-## Suggested Build Order
-
-**P0** (CAT-01 → CAT-02 → CAT-03 → CAT-04 → CAT-05) — categorization is the foundation everything else assumes.
-**P1** (NAV-01, TX-01, DASH-01, DASH-02, INFRA-02) — fast, low-risk, immediately visible improvements; INFRA-02 pulled forward since the perf issue already exists today.
-**P2** (SYS-01, SYS-02, SETTINGS-01, ONBOARD-01/02, A11Y-01) — depends on P0 categorization data; onboarding/accessibility can run in parallel with anything.
-**P3** (CALC-01 → CALC-03 → CALC-02 → CALC-04, then PORT-01…PORT-06) — calculators are independent of categorization and can be parallelized by a second agent/session.
-**P4** (REPORT-01, INFRA-01) — depends on SYS-01 (contracts) and stable analytics from earlier tiers.

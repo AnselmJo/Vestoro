@@ -156,6 +156,23 @@ export class VestoroDb extends Dexie {
       .upgrade(async () => {
         // nothing to migrate; new tables start empty
       });
+
+    // v6: contract detection decisions
+    this.version(6)
+      .stores({
+        persons: 'id',
+        accounts: 'id, personId, iban',
+        categories: 'id, kind',
+        transactions: 'id, accountId, bookingDate, importHash, categoryId, transferGroupId',
+        rules: 'id, priority',
+        settings: 'key',
+        undoEntries: 'id, createdAt',
+        auditLogs: 'id, ts, action',
+        contractDecisions: 'id, counterpartyNormalized, amountCents, createdAt',
+      })
+      .upgrade(async () => {
+        // nothing to migrate for contractDecisions
+      });
   }
 }
 
