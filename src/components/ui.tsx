@@ -1,12 +1,7 @@
 import { useEffect, useRef } from 'react';
-import * as echarts from 'echarts/core';
-import { SankeyChart, BarChart, LineChart } from 'echarts/charts';
-import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components';
-import { CanvasRenderer } from 'echarts/renderers';
 import type { ReactNode } from 'react';
 
-echarts.use([SankeyChart, BarChart, LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
-
+// ECharts is dynamically imported inside Chart to keep the main bundle small.
 export function Kpi({ label, value, tone, delta }: {
   label: string; value: string; tone?: 'income' | 'expense' | 'accent'; delta?: number | null;
 }) {
@@ -40,26 +35,60 @@ export function Seg<T extends string>({ options, value, onChange }: {
 }
 
 /** Thin ECharts wrapper: re-renders when option changes, resizes with the window. */
-export function Chart({ option, height = 320, onNodeClick }: { option: echarts.EChartsCoreOption; height?: number; onNodeClick?: (name: string) => void }) {
+export function Chart({ option, height = 320, onNodeClick }: { option: any; height?: number; onNodeClick?: (name: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
-  const chart = useRef<echarts.ECharts | null>(null);
+  const chartRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!ref.current) return;
-    chart.current = echarts.init(ref.current);
-    const onResize = () => chart.current?.resize();
-    window.addEventListener('resize', onResize);
-    const handler = (params: any) => {
-      // ECharts click payload contains name for nodes
-      const name = params?.name ?? params?.data?.name;
-      if (name && typeof onNodeClick === 'function') onNodeClick(name);
-    };
-    chart.current.on('click', handler);
-    return () => { window.removeEventListener('resize', onResize); chart.current?.off('click', handler); chart.current?.dispose(); };
-  }, []);
+    let mounted = true;
+    let chart: any = null;
+
+    async function init() {
+      if (!ref.current) return;
+      await Promise.all([
+        import('echarts/core'),
+        import('echarts/charts'),
+        import('echarts/components'),
+        import('echarts/renderers'),
+      ]);
+      // Register commonly used charts/components
+      try {
+        const { use: echartsUse } = await import('echarts/core');
+        const { SankeyChart, BarChart, LineChart } = await import('echarts/charts');
+        const { GridComponent, TooltipComponent, LegendComponent } = await import('echarts/components');
+        const { CanvasRenderer } = await import('echarts/renderers');
+        echartsUse([SankeyChart, BarChart, LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
+      } catch (e) {
+        // ignore registration errors
+      }
+
+      const { init: echartsInit } = await import('echarts/core');
+      chart = echartsInit(ref.current);
+      chartRef.current = chart;
+
+      const onResize = () => chart?.resize();
+      window.addEventListener('resize', onResize);
+      const handler = (params: any) => {
+        const name = params?.name ?? params?.data?.name;
+        if (name && typeof onNodeClick === 'function') onNodeClick(name);
+      };
+      chart.on('click', handler);
+
+      if (mounted) chart.setOption(option, { notMerge: true });
+
+      return () => {
+        window.removeEventListener('resize', onResize);
+        chart?.off('click', handler);
+        try { chart?.dispose(); } catch (e) { /* noop */ }
+      };
+    }
+
+    const cleanupPromise = init();
+    return () => { mounted = false; cleanupPromise.then((fn) => fn && fn()); };
+  }, []); // intentionally run once
 
   useEffect(() => {
-    chart.current?.setOption(option, { notMerge: true });
+    if (chartRef.current) chartRef.current.setOption(option, { notMerge: true });
   }, [option]);
 
   return <div ref={ref} style={{ height }} />;

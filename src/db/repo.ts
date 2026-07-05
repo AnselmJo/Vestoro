@@ -241,6 +241,16 @@ export async function moveRule(id: string, direction: 'up' | 'down'): Promise<vo
   });
 }
 
+/** Reorder rules to match the provided array of ids (first = highest priority). */
+export async function reorderRules(ids: string[]): Promise<void> {
+  await db.transaction('rw', db.rules, async () => {
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      await db.rules.update(id, { priority: i + 1 });
+    }
+  });
+}
+
 // ---------- demo & danger zone ----------
 export async function clearDemoData(): Promise<void> {
   const demoAccounts = (await db.accounts.toArray()).filter((a) => a.isDemo);
